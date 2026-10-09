@@ -1,0 +1,43 @@
+/* BUSYATRI DRIVER — brutalist mobile web. No install, no build. */
+:root{
+  --bg:#f4f1ea; --ink:#111; --yellow:#ffde00; --pink:#ff4d8d; --lime:#00e676;
+  --red:#ff3b30; --amber:#ffab00; --paper:#fff;
+  --bd:3px solid #111; --sh:6px 6px 0 #111;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --disp:"Archivo Black",Arial Black,Impact,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--mono)}
+.app{max-width:520px;margin:0 auto;padding:14px 14px 40px;min-height:100vh}
+.view.hidden,.hidden{display:none!important}
+.header{background:var(--ink);color:#fff;border:var(--bd);box-shadow:var(--sh);padding:12px;margin-bottom:14px;transform:rotate(-.5deg)}
+.header h1{font-family:var(--disp);margin:0;font-size:30px;letter-spacing:-.5px}
+.header p{margin:4px 0 0;color:var(--yellow);font-weight:800;font-size:12px}
+.header.live{background:var(--pink)}
+.header.live p{color:#fff}
+.card{background:var(--paper);border:var(--bd);box-shadow:4px 4px 0 #111;padding:14px;margin-bottom:12px}
+.card.hard{box-shadow:var(--sh)}
+.card b{letter-spacing:.06em}
+label{display:block;font-weight:900;font-size:12px;letter-spacing:.06em;margin-bottom:12px}
+input{display:block;width:100%;font-family:var(--mono);font-weight:700;font-size:17px;border:var(--bd);padding:12px;margin-top:6px;background:#fff;color:var(--ink)}
+.bigbtn{display:block;width:100%;font-family:var(--mono);font-weight:900;font-size:19px;letter-spacing:.03em;border:var(--bd);box-shadow:4px 4px 0 #111;padding:16px;margin-bottom:12px;cursor:pointer;color:var(--ink);background:#fff;text-transform:uppercase}
+.bigbtn:active{transform:translate(2px,2px);box-shadow:0 0 0 #111}
+.bigbtn.lime{background:var(--lime)} .bigbtn.yellow{background:var(--yellow)}
+.bigbtn.red{background:var(--red);color:#fff} .bigbtn.ghost{background:#eee}
+.bigbtn.small{font-size:14px;padding:12px;flex:1}
+.bigbtn.white{background:#fff}
+.chip{border:var(--bd);box-shadow:4px 4px 0 #111;padding:12px;font-weight:900;margin-bottom:12px;background:#fff}
+.chip.online{background:var(--lime)} .chip.sync{background:var(--amber)} .chip.offline{background:var(--red);color:#fff}
+.mono{font-size:13px}
+.statgrid{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.stat{flex:1;min-width:100px;background:#fff;border:var(--bd);padding:10px}
+.stat span{display:block;font-size:11px;font-weight:800;opacity:.65}
+.stat b{font-size:20px;font-weight:900}
+.rowbtns{display:flex;gap:10px}
+.linkbtn{background:none;border:none;font-family:var(--mono);font-weight:800;font-size:12px;text-decoration:underline;padding:8px 0;cursor:pointer;color:var(--ink)}
+.err{background:var(--red);color:#fff;border:var(--bd);padding:10px;font-weight:800;margin-top:10px}
+.warn{background:var(--yellow);border:var(--bd);box-shadow:4px 4px 0 #111;padding:12px;font-weight:700;margin-bottom:12px}
+#scanBox{margin-bottom:12px}
+#qrReader{border:var(--bd);background:#111;min-height:240px}
+#qrReader video{width:100%}
+#sBody{font-weight:800;font-size:16px;line-height:1.7}

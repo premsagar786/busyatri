@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FFDE00" />
+<title>BUSYATRI DRIVER</title>
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+<div class="app">
+
+  <!-- LOGIN -->
+  <section id="v-login" class="view">
+    <div class="header"><h1>BUS★YATRI</h1><p>DRIVER / SCAN OR TYPE</p></div>
+    <div id="secWarn" class="warn hidden">⚠ NOT A SECURE PAGE — phone browsers block CAMERA + GPS on plain HTTP. Open the <b>https://</b> tunnel link instead (see README Option A). Typing the token will still fail at GPS.</div>
+    <button id="scanBtn" class="bigbtn lime">▣ SCAN BUS QR →</button>
+    <div id="scanBox" class="hidden">
+      <div id="qrReader"></div>
+      <button id="scanCancel" class="bigbtn ghost">✕ CANCEL SCAN</button>
+    </div>
+    <div class="card">
+      <label>BUS NUMBER (OPTIONAL CHECK)<input id="fBus" placeholder="BUS 01" autocomplete="off" /></label>
+      <label>DEVICE TOKEN<input id="fToken" placeholder="bt_..." type="password" autocomplete="off" /></label>
+      <button id="loginBtn" class="bigbtn yellow">VERIFY + SIGN IN →</button>
+      <div id="loginErr" class="err hidden"></div>
+    </div>
+    <button id="srvBtn" class="linkbtn">SERVER: <span id="srvLbl">…</span> (TAP TO CHANGE)</button>
+  </section>
+
+  <!-- PERMISSIONS -->
+  <section id="v-perm" class="view hidden">
+    <div class="header"><h1>WHY GPS?</h1><p>READ, THEN TAP</p></div>
+    <div class="card"><b>1 / LOCATION</b><br />Live position every ~10 s while the trip is ON.</div>
+    <div class="card"><b>2 / KEEP THIS TAB OPEN</b><br />Web tracking pauses if the phone sleeps or you leave. We hold the screen awake — don't lock, don't switch apps.</div>
+    <div class="card"><b>3 / OFFLINE QUEUE</b><br />No signal? Points stay on the phone and upload later. Nothing is lost.</div>
+    <button id="permBtn" class="bigbtn lime">ALLOW GPS + CONTINUE →</button>
+    <div id="permErr" class="err hidden"></div>
+  </section>
+
+  <!-- HOME -->
+  <section id="v-home" class="view hidden">
+    <div class="header"><h1 id="hBus">BUS─?</h1><p id="hRoute">— → —</p></div>
+    <div id="resumeBox" class="warn hidden">TRIP <b id="resumeId"></b> WAS ACTIVE. <span class="rowbtns"><button id="resumeYes" class="bigbtn small lime">RESUME</button><button id="resumeNo" class="bigbtn small ghost">DISCARD</button></span></div>
+    <div id="chip" class="chip online">ONLINE ● LIVE</div>
+    <div class="card mono" id="syncLine">LAST SYNC: never / SENT: 0 / QUEUED: 0</div>
+    <button id="tripBtn" class="bigbtn lime">▶ START TRIP</button>
+    <div class="statgrid">
+      <div class="stat"><span>SPEED</span><b id="stSpeed">—</b></div>
+      <div class="stat"><span>ACCURACY</span><b id="stAcc">—</b></div>
+    </div>
+    <div class="rowbtns">
+      <button id="goTrip" class="bigbtn small white">TRIP →</button>
+      <button id="goSettings" class="bigbtn small white">SETUP →</button>
+    </div>
+  </section>
+
+  <!-- TRIP -->
+  <section id="v-trip" class="view hidden">
+    <div class="header live"><h1>● TRIP LIVE</h1><p id="tId">—</p></div>
+    <div class="statgrid">
+      <div class="stat"><span>ELAPSED</span><b id="tElapsed">0s</b></div>
+      <div class="stat"><span>SPEED</span><b id="tSpeed">—</b></div>
+      <div class="stat"><span>QUEUED</span><b id="tQueued">0</b></div>
+      <div class="stat"><span>SENT</span><b id="tSent">0</b></div>
+    </div>
+    <div class="card"><b>SYNC</b><div class="mono" id="tSync">LAST: never / NET: ONLINE</div><br />DO NOT LOCK THE PHONE. DO NOT LEAVE THIS TAB.</div>
+    <button id="backHome" class="bigbtn yellow">← HOME (END TRIP THERE)</button>
+  </section>
+
+  <!-- SUMMARY -->
+  <section id="v-summary" class="view hidden">
+    <div class="header"><h1>TRIP DONE ✓</h1><p id="sId">—</p></div>
+    <div class="card hard"><b>SUMMARY</b><div id="sBody">—</div></div>
+    <button id="sumHome" class="bigbtn yellow">← HOME</button>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="v-settings" class="view hidden">
+    <div class="header"><h1>SETUP</h1><p>SERVER + SIGN OUT</p></div>
+    <div class="card"><b>SERVER</b><div class="mono" id="setApi">…</div></div>
+    <button id="chgSrv" class="bigbtn white">CHANGE SERVER</button>
+    <button id="signOut" class="bigbtn red">SIGN OUT</button>
+    <button id="setBack" class="bigbtn yellow">← HOME</button>
+  </section>
+
+</div>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>

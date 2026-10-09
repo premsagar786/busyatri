@@ -94,11 +94,9 @@ cloudflared tunnel --url http://localhost:3000
 ```
 
 - **Students:** open the `https://…` URL. Done.
-- **Drivers:** set `EXPO_PUBLIC_API_URL=https://…` in `driver-app/.env`,
-  restart the dev client (`npx expo start --dev-client`) — Expo bakes
-  `EXPO_PUBLIC_*` vars in at build time, so the URL is fixed per build.
-  For a road test, `eas build --profile preview` an APK with the tunnel
-  (or final prod) URL baked in.
+- **Drivers:** open `https://…/driver` on the phone browser, scan the bus QR —
+  no install, no rebuild, server URL comes from the QR. (Native APK path:
+  `EXPO_PUBLIC_API_URL` baked at build time, needs rebuild per URL.)
 - **Admin:** same URL + the `ADMIN_KEY` in the ADD BUS form.
 - WS rides the same tunnel (`wss://…/ws/live`), auto-derived — nothing else
   to configure. (`ngrok http 3000` works identically.)
@@ -154,10 +152,10 @@ No ports to open — the platform terminates TLS on `443`:
 | Dashboard ● OFFLINE but API works in curl | WS blocked by proxy | page still live-updates via 10 s REST poll; prefer https tunnel |
 | Admin form `401 admin_only` | wrong `X-ADMIN-KEY` | match backend `ADMIN_KEY` (default `admin-dev-key` in dev) |
 
-## Driver onboarding via QR (no typing)
+## Driver onboarding via QR (no typing, no install)
 
-Drivers never type tokens. The admin prints a QR per bus; the driver scans it
-inside the app and lands signed in with bus, route, and server URL all set.
+Drivers use the **driver web app** — no APK, no build. The admin prints a QR
+per bus; the driver opens a link, scans it, and lands signed in.
 
 **Admin (dashboard):**
 1. ADD BUS form → CREATE → **▣ SHOW QR FOR THIS TOKEN**. Print it (button in
@@ -165,12 +163,23 @@ inside the app and lands signed in with bus, route, and server URL all set.
 2. Already have a bus? Its card → **QR** → reissues a fresh token + QR
    (old token dies — driver re-scans; use when a printout leaks).
 
-**Driver (Android app):**
-1. Install the APK, open the app → **▣ SCAN BUS QR →**.
-2. Allow camera once, hold the printout in the frame. The app verifies the
-   token live (`/me`), saves bus + route + **server URL from the QR**, and
-   jumps to permissions → START TRIP. Full features unlocked, nothing typed.
-3. No camera / torn printout? Login screen → type bus + token manually.
+**Driver (any Android phone browser):**
+1. Open the driver link: same origin as the API + `/driver`
+   (local: `http://localhost:3000/driver`, tunnel/prod: `https://…/driver`).
+2. Tap **▣ SCAN BUS QR**, hold the printout in the frame. The app verifies
+   the token live (`/me`), saves bus + route + **server URL from the QR**,
+   and jumps to permissions → START TRIP. Full features, nothing typed.
+3. No camera / torn printout? Type bus + token manually on the same page.
+
+**Rules of the road (browser limits, stated in-app too):**
+- GPS + camera need a **secure page**: `https://` tunnel/prod URL, or
+  `localhost`. Plain-LAN `http://192.168…` gets a blocking warning — use the
+  tunnel link (README Option A) for real drives.
+- Keep the tab open and the phone awake (the app holds a screen Wake Lock):
+  unlike the native app, web tracking pauses if the phone sleeps. Offline
+  queue + resume-trip still protect every point.
+- Native Expo app (`driver-app/`) remains as the background-tracking upgrade
+  path; the web app is the default because it needs zero install.
 
 **How it works:** QR payload is `{"v":1,"api":"https://…","bus":"BUS 01",
 "token":"bt_…"}` — validated strictly (bad version/address/missing token =
@@ -205,7 +214,8 @@ TOKEN=bt_paste_from_seed API=http://localhost:3000 node replay.js
 backend/     Express API + WS + SQLite (WAL, UNIQUE bus_id+point_id)
              …or Supabase Postgres when DATABASE_URL is set (same behavior)
 dashboard/   Brutalist static site (index.html/app.js/styles.css, Leaflet CDN)
-driver-app/  Expo Router driver app, brutalist UI (login/scan/permissions/home/trip/summary/settings)
+driver-web/  Driver web app: QR login, GPS tracking, offline queue (PRIMARY — no install)
+driver-app/  Expo native app (BACKGROUND-tracking upgrade path; needs EAS build + APK)
 simulator/   Node GPS replay (no phone needed for judging)
 ```
 

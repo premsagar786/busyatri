@@ -20,7 +20,8 @@ at all. The current system is phone calls and guesses.
 
 | # | Part | What it is | Status |
 |---|---|---|---|
-| 1 | **Driver app** (Expo, Android-first) | Bus login via QR scan or token, START/END TRIP, background GPS every 10 s with foreground-service notification, offline SQLite queue, batch upload with backoff | Built, runs on Metro; needs EAS APK + phone for road test |
+| 1 | **Driver web app** (mobile browser, zero install) | Bus login via QR scan or token, START/END TRIP, GPS watch, screen Wake Lock, localStorage offline queue, batch upload with backoff | Live at `/driver` |
+| 1b | **Driver native app** (Expo, background-tracking upgrade) | Same flows + true background GPS via foreground service | Built, needs EAS APK + phone |
 | 2 | **Backend** (Node + Express + WebSocket) | Idempotent batch ingestion, live push hub, fleet/trail/trip APIs, admin bus+route management | Live on Supabase Postgres |
 | 3 | **Dashboard** (static, brutalist) | Leaflet/OSM map, fleet cards, trip trails + history, per-bus QR printing, admin panel | Live, served by the backend |
 
@@ -46,10 +47,11 @@ map centers, yellow trail draws over the pink route line → HISTORY shows past
 trips. The `NEW` badge spotlights buses added mid-session; the ticker and
 `LAST SERVER UPDATE` footer prove freshness.
 
-**Driver:** installs APK → **SCAN BUS QR** (camera, one tap) → token verified
-live, bus + route + server URL saved → permissions explainer → START TRIP →
-status chip (ONLINE / SYNCING N / OFFLINE+N queued), speed, last sync. Kills
-the app? Foreground service keeps tracking. Reboots? "Resume trip?" on launch.
+**Driver:** opens the `/driver` link (no install) → **SCAN BUS QR** → token
+verified live, bus + route + server saved → permissions explainer → START
+TRIP → status chip (ONLINE / SYNCING N / OFFLINE+N queued), speed, last sync.
+Reloads mid-trip? "Resume?" prompt. (Native APK adds true background tracking;
+web pauses if the phone sleeps — stated on screen.)
 
 **Admin:** same dashboard → ADD BUS (name + route + optional road polyline) →
 token issued once + printable QR. New route names **create** the route (map +
@@ -113,8 +115,10 @@ reboot-resume, server-down queue drain (procedures in DEPLOYMENT.md §8).
 3. **(2:30)** Admin adds a bus live (e.g. BUS 30, new route) → toast + NEW
    badge + route appears on everyone's screen with zero refresh. SHOW QR →
    print modal.
-4. **(3:30)** Driver app on a real phone: SCAN the printed QR → START TRIP →
-   second live marker joins the map within ~15 s.
+4. **(3:30)** Driver web app on a real phone browser: open `/driver`, SCAN the
+   printed QR → START TRIP → second live marker joins the map within ~15 s.
+   (Keep the tab open — stated on screen; native APK is the background-mode
+   upgrade, not required for the demo.)
 5. **(4:30)** Resilience pitch: enable airplane mode on the phone for 2 min,
    disable → queued points flood in, zero duplicates (show `duplicates` count
    in server logs). Backup: recorded screen video if the hall Wi-Fi dies.
@@ -122,8 +126,10 @@ reboot-resume, server-down queue drain (procedures in DEPLOYMENT.md §8).
 ## 9. Honest scope notes
 
 - **Done and real:** everything above runs against Supabase right now.
-- **Not yet road-proven:** driver app needs the EAS APK + physical phone
-  (`eas build --profile preview`); all phone-side resilience tests await it.
+- **Road-day requirements:** driver web needs the `https://` link (tunnel/prod)
+  and an open, awake tab — both stated in-app. Phone-side airplane-mode and
+  reboot-resume tests await a live drive (procedures in DEPLOYMENT.md §8);
+  the native APK remains the background-mode upgrade.
 - **Stretch (in PRD §13, not built):** ETA, geofence arrival alerts,
   route-deviation alerts, fuel estimates.
 - **Security posture:** per-bus bearer tokens (SHA-256 + pepper), admin key
@@ -139,7 +145,8 @@ cd backend && npm install && npm run dev        # :3000 = API + dashboard
 npm run seed                                     # routes + BUS 01–03 + tokens
 # simulator (a live bus with no phone)
 cd ../simulator && TOKEN=<bus-token> API=http://localhost:3000 node replay.js
-# driver app (needs EAS build + Android phone)
+# driver web app: just open https://<api>/driver on the phone — no build
+# native driver app (optional upgrade, needs EAS build + Android phone)
 cd ../driver-app && npm install && npx expo start --dev-client
 ```
 

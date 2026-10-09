@@ -82,6 +82,20 @@ if (fs.existsSync(path.join(dashboardDir, "index.html"))) {
   app.get("/", (_req, res) => res.redirect("/api"));
 }
 
+// Driver web app (replaces the APK for most drivers): same-origin at /driver
+// so the QR/server URL just works with zero CORS setup.
+const driverDir =
+  process.env.DRIVER_DIR ||
+  (fs.existsSync(path.join(process.cwd(), "driver-web", "index.html"))
+    ? path.join(process.cwd(), "driver-web")
+    : path.join(__dirname, "..", "..", "driver-web"));
+if (fs.existsSync(path.join(driverDir, "index.html"))) {
+  app.use("/driver", express.static(driverDir));
+  console.log(`[api] serving driver web from ${driverDir}`);
+} else {
+  console.log(`[api] driver web not found at ${driverDir}`);
+}
+
 const server = http.createServer(app);
 server.headersTimeout = 15_000;
 server.requestTimeout = 20_000;
