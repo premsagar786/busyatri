@@ -48,7 +48,7 @@ export default function Home() {
 
   async function toggle() {
     if (!s.active) {
-      const id = await beginTrip(s.busNumber || "BUS");
+      const id = await beginTrip(s.busNumber || "BUS", { apiUrl: await getApiUrl(), token: s.token || "" });
       s.set({ tripId: id, active: true, startedAt: new Date().toISOString() });
       startSync(id, s.token!);
       router.push("/trip");

@@ -9,10 +9,19 @@ export function newTripId(busNumber: string): string {
   return `trip_${d}_${busNumber.replace(/\s+/g, "")}_${Date.now().toString(36)}`;
 }
 
-export async function beginTrip(busNumber: string): Promise<string> {
+export async function beginTrip(busNumber: string, opts?: { apiUrl?: string; token?: string }): Promise<string> {
   const id = newTripId(busNumber);
   setCurrentTrip(id);
   await saveSession(TRIP_KEY, JSON.stringify({ tripId: id, busNumber, startedAt: new Date().toISOString() }));
+  // Announce START instantly so the dashboard shows STARTING within a
+  // second (first GPS fix can take much longer). Best-effort.
+  if (opts?.apiUrl && opts?.token) {
+    fetch(`${opts.apiUrl}/api/v1/buses/trips/start`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${opts.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ trip_id: id }),
+    }).catch((e) => console.warn("[session] start ping failed (first batch covers it)", e));
+  }
   // Real GPS only — no simulation. Tracking uses the foreground service
   // so points keep flowing when the app is backgrounded.
   await startTracking(busNumber);

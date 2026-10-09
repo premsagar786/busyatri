@@ -50,7 +50,9 @@ the browser).
 
 **How the user knows it's fresh (not a stale screenshot)**
 
-- Status chip per bus: **MOVING** (lime) / **STOPPED** (yellow) / **OFFLINE** (red, no point in 60 s).
+- Status chip per bus: **MOVING** (lime) / **STOPPED** (yellow) /
+  **STARTING** (amber pulse — driver tapped START, first GPS still in flight,
+  up to ~1 min) / **OFFLINE** (red, no point in 60 s and no recent start).
 - `UPDATED: 12s AGO` under each bus + speed in km/h.
 - Footer `LAST SERVER UPDATE: <time>` and the top-right pill: **● ONLINE** vs **● OFFLINE**.
 - Click a bus → map centers on it and draws its trip trail. **HISTORY** shows past trips. **FIT ALL** frames fleet + routes.

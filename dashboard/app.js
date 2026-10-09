@@ -295,6 +295,12 @@ function connectWs() {
           return;
         }
         if (msg.type === "bus.status" || msg.type === "trip.end") { fetchBuses(); return; }
+        if (msg.type === "trip.start") {
+          lastHeartbeat = Date.now();
+          toast(`▶ ${msg.bus_number} STARTED TRIP — waiting for first GPS…`);
+          fetchBuses();
+          return;
+        }
         if (msg.type === "routes.updated") { fetchRoutes(); fetchBuses(); return; }
       } catch {}
     };

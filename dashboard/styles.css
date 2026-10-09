@@ -44,6 +44,7 @@ h2{font-family:var(--disp);margin:0;font-size:22px}
 .legend{display:flex;gap:14px;padding:10px 14px;border-bottom:var(--bd);background:var(--bg);font-size:12px;font-weight:800}
 .dot{display:inline-block;width:14px;height:14px;border:2px solid #111;margin-right:6px;vertical-align:-2px}
 .dot.moving{background:var(--lime)} .dot.stopped{background:var(--yellow)} .dot.offline{background:var(--red)}
+.dot.starting{background:var(--amber)}
 .cards{display:flex;flex-direction:column;gap:12px;padding:14px;max-height:52vh;overflow:auto}
 .card{border:var(--bd);box-shadow:var(--sh-sm);background:#fff;cursor:pointer}
 .card.sel{outline:4px solid var(--blue)}
@@ -52,6 +53,7 @@ h2{font-family:var(--disp);margin:0;font-size:22px}
 .busno.hot{background:var(--pink)}
 .status{margin-left:auto;font-weight:900;border:2px solid #111;padding:4px 8px;font-size:12px}
 .status.Moving{background:var(--lime)} .status.Stopped{background:var(--yellow)} .status.Offline{background:var(--red);color:#fff} .status.Live{background:var(--blue);color:#fff}
+.status.Starting{background:var(--amber);animation:blink 1s steps(2) infinite}
 .card-body{padding:10px 12px;font-size:13px;display:grid;gap:4px}
 .card-body b{background:var(--bg);border:2px solid #111;padding:0 4px}
 .admin-form{display:grid;gap:8px;padding:14px}

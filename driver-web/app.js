@@ -224,6 +224,13 @@ $("#tripBtn").onclick = async () => {
     S.trip = { tripId, startedAt: new Date().toISOString() };
     LS.set("dw_trip", JSON.stringify(S.trip));
     S.sent = 0; localStorage.setItem("dw_sent", "0");
+    // Announce START instantly so the dashboard shows STARTING within a
+    // second (first GPS fix can take much longer). Best-effort: the first
+    // uploaded batch creates the trip anyway.
+    apiFetch("/api/v1/buses/trips/start", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trip_id: tripId }),
+    }).catch((e) => console.warn("start ping failed (first batch covers it):", e.message));
     startTracking();
     $("#tId").textContent = tripId;
     paintHome(); show("#v-trip"); paintTrip();

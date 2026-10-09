@@ -22,6 +22,8 @@ export interface FleetRow {
   speed_mps: number | null;
   last_seen: string | null;
   trip_id: string | null;
+  active_trip_id: string | null;
+  active_trip_started_at: string | null;
 }
 
 export interface TrailPoint {
@@ -128,18 +130,22 @@ export async function getBusProfile(busId: number): Promise<BusProfile | undefin
   return row ?? undefined;
 }
 
-const FLEET_SQL = `
+function fleetSql(activeFlag: string): string {
+  return `
   SELECT b.id, b.bus_number, b.route_name, b.destination,
     (SELECT lat FROM positions WHERE bus_id = b.id ORDER BY recorded_at DESC LIMIT 1) AS lat,
     (SELECT lng FROM positions WHERE bus_id = b.id ORDER BY recorded_at DESC LIMIT 1) AS lng,
     (SELECT speed_mps FROM positions WHERE bus_id = b.id ORDER BY recorded_at DESC LIMIT 1) AS speed_mps,
     (SELECT recorded_at FROM positions WHERE bus_id = b.id ORDER BY recorded_at DESC LIMIT 1) AS last_seen,
-    (SELECT trip_id FROM positions WHERE bus_id = b.id ORDER BY recorded_at DESC LIMIT 1) AS trip_id
+    (SELECT trip_id FROM positions WHERE bus_id = b.id ORDER BY recorded_at DESC LIMIT 1) AS trip_id,
+    (SELECT trip_code FROM trips WHERE bus_id = b.id AND active = ${activeFlag} ORDER BY started_at DESC LIMIT 1) AS active_trip_id,
+    (SELECT started_at FROM trips WHERE bus_id = b.id AND active = ${activeFlag} ORDER BY started_at DESC LIMIT 1) AS active_trip_started_at
   FROM buses b ORDER BY b.bus_number`;
+}
 
 export async function listFleet(): Promise<FleetRow[]> {
   if (isPg) {
-    const rows = await requirePg().unsafe(FLEET_SQL);
+    const rows = await requirePg().unsafe(fleetSql("TRUE"));
     return (rows as Array<Record<string, unknown>>).map((r) => ({
       id: r.id as number,
       bus_number: r.bus_number as string,
@@ -150,9 +156,11 @@ export async function listFleet(): Promise<FleetRow[]> {
       speed_mps: (r.speed_mps as number | null) ?? null,
       last_seen: iso(r.last_seen),
       trip_id: (r.trip_id as string | null) ?? null,
+      active_trip_id: (r.active_trip_id as string | null) ?? null,
+      active_trip_started_at: iso(r.active_trip_started_at),
     }));
   }
-  const rows = getSqlite().prepare(FLEET_SQL).all() as FleetRow[];
+  const rows = getSqlite().prepare(fleetSql("1")).all() as FleetRow[];
   return rows;
 }
 
@@ -184,17 +192,18 @@ export async function getTrail(busId: number, sinceIso: string): Promise<{ trail
 
 export async function createBus(input: {
   busNumber: string; routeId: number | null; routeName: string; destination: string; tokenHash: string;
+  driverEmail?: string | null;
 }): Promise<number> {
   if (isPg) {
     const rows = await requirePg()`
-      INSERT INTO buses (bus_number, route_id, route_name, destination, token_hash)
-      VALUES (${input.busNumber}, ${input.routeId}, ${input.routeName}, ${input.destination}, ${input.tokenHash})
+      INSERT INTO buses (bus_number, route_id, route_name, destination, token_hash, driver_email)
+      VALUES (${input.busNumber}, ${input.routeId}, ${input.routeName}, ${input.destination}, ${input.tokenHash}, ${input.driverEmail ?? null})
       RETURNING id`;
     return (rows[0] as { id: number }).id;
   }
   const info = getSqlite()
-    .prepare("INSERT INTO buses (bus_number, route_id, route_name, destination, token_hash) VALUES (?, ?, ?, ?, ?)")
-    .run(input.busNumber, input.routeId, input.routeName, input.destination, input.tokenHash);
+    .prepare("INSERT INTO buses (bus_number, route_id, route_name, destination, token_hash, driver_email) VALUES (?, ?, ?, ?, ?, ?)")
+    .run(input.busNumber, input.routeId, input.routeName, input.destination, input.tokenHash, input.driverEmail ?? null);
   return Number(info.lastInsertRowid);
 }
 export async function rotateBusToken(busNumber: string, hash: string): Promise<boolean> {

@@ -6,6 +6,7 @@ import { broadcast } from "../ws/hub";
 import {
   getBusProfile, listFleet, getTrail, createBus, rotateBusToken,
   getTrip, getTripPoints, endTrip as finishTrip, listTrips, upsertRoute,
+  ensureTrip,
 } from "../db/store";
 
 export const buses = Router();
@@ -41,12 +42,19 @@ buses.get("/", async (_req, res) => {
       } else if (status === "Live") {
         status = "Moving";
       }
+      // Trip announced but no GPS yet (cold fix, first upload in flight):
+      // show STARTING for 10 min so admins see intent, not silence.
+      const tripStartMs = r.active_trip_started_at ? Date.parse(r.active_trip_started_at) : null;
+      if (status === "Offline" && tripStartMs !== null && !Number.isNaN(tripStartMs) && Date.now() - tripStartMs < 10 * 60_000) {
+        status = "Starting";
+      }
       return {
         id: r.id,
         bus_number: r.bus_number,
         route: r.route_name,
         destination: r.destination,
         status,
+        active_trip: r.active_trip_id ? { trip_id: r.active_trip_id, started_at: r.active_trip_started_at } : null,
         last_position:
           r.lat !== null && r.lng !== null
             ? { lat: r.lat, lng: r.lng, speed_mps: r.speed_mps, recorded_at: r.last_seen, trip_id: r.trip_id }
@@ -156,6 +164,22 @@ buses.post("/:busNumber/rotate-token", authAdmin, async (req, res) => {
     res.json({ bus_number: req.params.busNumber, token });
   } catch (err) {
     console.error("[buses] rotate failed", err);
+    res.status(500).json({ error: "db_error" });
+  }
+});
+
+// Driver announces START instantly (before first GPS fix uploads), so the
+// dashboard shows STARTING within a second instead of silence. Fire-and-forget
+// safe: first batch would create the trip anyway; this just makes it instant.
+buses.post("/trips/start", authBus, async (req, res) => {
+  const parsed = z.object({ trip_id: z.string().min(1).max(120) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "invalid_body" });
+  try {
+    await ensureTrip(parsed.data.trip_id, req.busId!, "phone", new Date().toISOString());
+    broadcast({ type: "trip.start", bus_id: req.busId, bus_number: req.busNumber, trip_id: parsed.data.trip_id });
+    res.json({ ok: true, trip_id: parsed.data.trip_id });
+  } catch (err) {
+    console.error("[buses] trip-start failed", err);
     res.status(500).json({ error: "db_error" });
   }
 });
