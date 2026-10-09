@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BUSYATRI — LIVE BUS TRACKER</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+<div class="ticker"><div class="ticker-inner" id="ticker">
+  <span>● CONNECTING TO API… ●&nbsp;</span><span>● CONNECTING TO API… ●&nbsp;</span>
+</div></div>
+
+<header class="topbar">
+  <div class="logo">BUS<span>YATRI</span></div>
+  <div class="topbar-sub">COLLEGE BUS TRACKER / V1.0 / PUNJAB</div>
+  <div class="topbar-right">
+    <div id="conn" class="conn offline">● OFFLINE</div>
+    <button id="cfgBtn" class="btn small">⚙ API</button>
+  </div>
+</header>
+
+<main class="grid">
+  <section class="panel map-panel">
+    <div class="panel-head">
+      <h2>LIVE MAP <span class="tag">OSM + LEAFLET</span></h2>
+      <div class="head-actions">
+        <span id="serverTime" class="mono">--:--:--</span>
+        <button id="fitBtn" class="btn small">FIT ALL</button>
+      </div>
+    </div>
+    <div id="map"></div>
+    <div class="map-foot mono" id="mapFoot">WAITING FOR GPS…</div>
+  </section>
+
+  <section class="panel table-panel">
+    <div class="panel-head">
+      <h2>FLEET <span id="fleetCount" class="tag yellow">0 BUSES</span></h2>
+      <button id="refreshBtn" class="btn small">↻ REFRESH</button>
+    </div>
+    <div class="legend">
+      <span><i class="dot moving"></i>MOVING</span>
+      <span><i class="dot stopped"></i>STOPPED</span>
+      <span><i class="dot offline"></i>OFFLINE &gt;60s</span>
+    </div>
+    <div id="cards" class="cards"></div>
+    <div class="panel-head sub"><h3>ADMIN — ADD BUS</h3></div>
+    <form id="addBus" class="admin-form">
+      <input id="fBus" placeholder="BUS 04" required maxlength="20" />
+      <input id="fRoute" placeholder="ROUTE NAME (new = created, existing = linked)" />
+      <input id="fOrigin" placeholder="ORIGIN (optional)" />
+      <input id="fDest" placeholder="DEST (leave blank if unknown)" />
+      <input id="fPoly" placeholder="POLYLINE lat,lng | lat,lng (optional, ≥2 pts)" />
+      <input id="fKey" placeholder="X-ADMIN-KEY" type="password" />
+      <button class="btn" type="submit">+ CREATE + TOKEN</button>
+    </form>
+    <pre id="adminOut" class="mono out">ADMIN OUTPUT →</pre>
+    <div id="qrWrap" class="qrwrap"></div>
+  </section>
+</main>
+
+<footer class="foot mono">
+  <span id="footStatus">LAST SERVER UPDATE: —</span>
+  <span>BRUTALISM EDITION / NO ROUNDED CORNERS WERE HARMED</span>
+</footer>
+
+<div id="toast" class="toast hidden"></div>
+
+<div id="qrModal" class="modal hidden">
+  <div class="modal-box">
+    <h3 id="qrTitle">BUS QR</h3>
+    <div id="qrBox" class="qrbox"></div>
+    <div class="mono" id="qrMeta"></div>
+    <div class="mono warn">QR = SIGN-IN. ANYONE SCANNING DRIVES AS THIS BUS. REISSUE IF LEAKED.</div>
+    <div class="row">
+      <button id="qrPrint" class="btn">PRINT</button>
+      <button id="qrClose" class="btn ghost">CLOSE</button>
+    </div>
+  </div>
+</div>
+
+<div id="cfgModal" class="modal hidden">
+  <div class="modal-box">
+    <h3>API CONFIG</h3>
+    <label>API URL<input id="apiUrl" /></label>
+    <label>WS URL<input id="wsUrl" /></label>
+    <div class="row">
+      <button id="cfgSave" class="btn">SAVE</button>
+      <button id="cfgClose" class="btn ghost">CLOSE</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>
