@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Campus Bus Tracker",
+    "slug": "campus-bus-tracker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "campus-bus-tracker",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#f4f6f0"
+    },
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {},
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Campus Bus Tracker to share the bus location while the driver is on duty."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

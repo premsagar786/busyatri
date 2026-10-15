@@ -10,6 +10,14 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: campus
+    description: Student-facing campus bus tracking
+  - name: account
+    description: Current user profile and role
+  - name: driver
+    description: Driver location and campus status updates
+  - name: admin
+    description: Administrator bus and driver management
 paths:
   /healthz:
     get:
@@ -24,7 +32,341 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /me:
+    get:
+      operationId: getMe
+      tags: [account]
+      summary: Get the current user's role and profile
+      responses:
+        "200":
+          description: Current user's profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /campus:
+    get:
+      operationId: getCampus
+      tags: [campus]
+      summary: List buses visible to students with their current locations and remarks
+      responses:
+        "200":
+          description: Campus buses and their latest tracking data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /driver/location:
+    post:
+      operationId: updateDriverLocation
+      tags: [driver]
+      summary: Update the assigned bus location from the driver's phone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriverLocationUpdate"
+      responses:
+        "200":
+          description: Accepted location update
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /driver/remark:
+    post:
+      operationId: createDriverRemark
+      tags: [driver]
+      summary: Post a campus parking remark for the assigned bus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriverRemarkCreate"
+      responses:
+        "201":
+          description: Posted remark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Remark"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /driver/shift:
+    post:
+      operationId: updateDriverShift
+      tags: [driver]
+      summary: Mark the driver as on duty or off duty
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriverShiftUpdate"
+      responses:
+        "200":
+          description: Updated shift state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /admin/overview:
+    get:
+      operationId: getAdminOverview
+      tags: [admin]
+      summary: Get operational counts for the administrator dashboard
+      responses:
+        "200":
+          description: Bus and driver summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /admin/buses:
+    get:
+      operationId: listAdminBuses
+      tags: [admin]
+      summary: List all buses for administration
+      responses:
+        "200":
+          description: Bus list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createBus
+      tags: [admin]
+      summary: Add a bus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BusInput"
+      responses:
+        "201":
+          description: Created bus
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /admin/buses/{id}:
+    patch:
+      operationId: updateBus
+      tags: [admin]
+      summary: Update a bus
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BusUpdate"
+      responses:
+        "200":
+          description: Updated bus
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteBus
+      tags: [admin]
+      summary: Remove a bus
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Bus deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /admin/buses/{id}/location:
+    put:
+      operationId: setAdminBusLocation
+      tags: [admin]
+      summary: Create or update a bus location
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocationInput"
+      responses:
+        "200":
+          description: Location saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: clearBusLocation
+      tags: [admin]
+      summary: Clear a bus's last reported location
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Last location cleared
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /admin/drivers:
+    get:
+      operationId: listDrivers
+      tags: [admin]
+      summary: List all registered and invited drivers
+      responses:
+        "200":
+          description: Driver list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriverList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createDriver
+      tags: [admin]
+      summary: Add a driver by name and college email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriverInput"
+      responses:
+        "201":
+          description: Created driver record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Driver"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /admin/drivers/{id}:
+    patch:
+      operationId: updateDriver
+      tags: [admin]
+      summary: Update a driver assignment
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriverUpdate"
+      responses:
+        "200":
+          description: Updated driver
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Driver"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteDriver
+      tags: [admin]
+      summary: Remove a driver record
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Driver deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+  responses:
+    Unauthorized:
+      description: Sign-in required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: The current user cannot perform this action
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: The requested record was not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +375,274 @@ components:
           type: string
       required:
         - status
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    Location:
+      type: object
+      properties:
+        latitude:
+          type: number
+        longitude:
+          type: number
+        heading:
+          type: number
+          nullable: true
+        speed:
+          type: number
+          nullable: true
+        accuracy:
+          type: number
+          nullable: true
+        recordedAt:
+          type: string
+          format: date-time
+      required: [latitude, longitude, recordedAt]
+    LocationInput:
+      type: object
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+      required: [latitude, longitude]
+    Remark:
+      type: object
+      properties:
+        id:
+          type: integer
+        busId:
+          type: integer
+        text:
+          type: string
+        place:
+          type: string
+        driverName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, busId, text, place, driverName, createdAt]
+    Bus:
+      type: object
+      properties:
+        id:
+          type: integer
+        busNumber:
+          type: string
+        routeName:
+          type: string
+        routeStops:
+          type: array
+          items:
+            type: string
+        capacity:
+          type: integer
+        active:
+          type: boolean
+        driverName:
+          type: string
+          nullable: true
+        driverEmail:
+          type: string
+          nullable: true
+        onDuty:
+          type: boolean
+        location:
+          allOf:
+            - $ref: "#/components/schemas/Location"
+          nullable: true
+        remark:
+          allOf:
+            - $ref: "#/components/schemas/Remark"
+          nullable: true
+      required:
+        - id
+        - busNumber
+        - routeName
+        - routeStops
+        - capacity
+        - active
+        - driverName
+        - driverEmail
+        - onDuty
+        - location
+        - remark
+    BusList:
+      type: array
+      items:
+        $ref: "#/components/schemas/Bus"
+    CampusResponse:
+      type: object
+      properties:
+        collegeName:
+          type: string
+        buses:
+          type: array
+          items:
+            $ref: "#/components/schemas/Bus"
+      required: [collegeName, buses]
+    Profile:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [student, driver, admin]
+        assignedBusId:
+          type: integer
+          nullable: true
+        assignedBusNumber:
+          type: string
+          nullable: true
+        onDuty:
+          type: boolean
+      required: [id, name, email, role, assignedBusId, assignedBusNumber, onDuty]
+    AdminOverview:
+      type: object
+      properties:
+        totalBuses:
+          type: integer
+        activeBuses:
+          type: integer
+        busesSharingLocation:
+          type: integer
+        totalDrivers:
+          type: integer
+        driversOnDuty:
+          type: integer
+      required: [totalBuses, activeBuses, busesSharingLocation, totalDrivers, driversOnDuty]
+    Driver:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        busId:
+          type: integer
+          nullable: true
+        busNumber:
+          type: string
+          nullable: true
+        onDuty:
+          type: boolean
+      required: [id, name, email, busId, busNumber, onDuty]
+    DriverList:
+      type: array
+      items:
+        $ref: "#/components/schemas/Driver"
+    BusInput:
+      type: object
+      properties:
+        busNumber:
+          type: string
+          minLength: 1
+        routeName:
+          type: string
+          minLength: 1
+        routeStops:
+          type: array
+          items:
+            type: string
+        capacity:
+          type: integer
+          minimum: 1
+      required: [busNumber, routeName, routeStops, capacity]
+    BusUpdate:
+      type: object
+      properties:
+        busNumber:
+          type: string
+          minLength: 1
+        routeName:
+          type: string
+          minLength: 1
+        routeStops:
+          type: array
+          items:
+            type: string
+        capacity:
+          type: integer
+          minimum: 1
+        active:
+          type: boolean
+    DriverInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+        busId:
+          type: integer
+          nullable: true
+      required: [name, email]
+    DriverUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+        busId:
+          type: integer
+          nullable: true
+    DriverLocationUpdate:
+      type: object
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+        heading:
+          type: number
+          nullable: true
+        speed:
+          type: number
+          nullable: true
+        accuracy:
+          type: number
+          nullable: true
+      required: [latitude, longitude]
+    DriverRemarkCreate:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 180
+        place:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required: [text, place]
+    DriverShiftUpdate:
+      type: object
+      properties:
+        onDuty:
+          type: boolean
+      required: [onDuty]
 
