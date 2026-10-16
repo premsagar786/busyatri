@@ -51,6 +51,12 @@ export default function SignUpScreen() {
       setMessage(result.error.message);
       return;
     }
+    // The signUp signal can lag one tick behind the resolved promise, so wait
+    // briefly for the status to settle instead of trusting the first read.
+    const deadline = Date.now() + 3000;
+    while (signUp.status !== 'complete' && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    }
     if (signUp.status === 'complete') {
       await signUp.finalize({
         navigate: ({ decorateUrl }) =>
