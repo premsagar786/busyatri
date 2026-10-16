@@ -1,6 +1,8 @@
 import { useRouter, type Href } from 'expo-router';
-import { useSignIn } from '@clerk/expo';
+import { useOAuth, useSignIn } from '@clerk/expo';
 import { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,10 +19,29 @@ export default function SignInScreen() {
   const colors = useColors();
   const router = useRouter();
   const { signIn, errors, fetchStatus } = useSignIn();
+  const { startOAuthFlow: startGoogleFlow } = useOAuth({ strategy: 'oauth_google' });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const busy = fetchStatus === 'fetching';
+
+  const signInWithGoogle = async () => {
+    setMessage('');
+    try {
+      const { createdSessionId, setActive } = await startGoogleFlow();
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+        router.replace('/' as Href);
+        return;
+      }
+      setMessage('Google sign-in needs another step — finish it in the browser and try again.');
+    } catch (err) {
+      const message =
+        (err as { errors?: Array<{ message?: string }> })?.errors?.[0]?.message ??
+        'Google sign-in failed. Try again.';
+      setMessage(message);
+    }
+  };
 
   const submit = async () => {
     setMessage('');
@@ -111,6 +132,27 @@ export default function SignInScreen() {
             </Text>
           )}
         </Pressable>
+        <View style={styles.divider}>
+          <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+          <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>or</Text>
+          <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+        </View>
+        <Pressable
+          onPress={signInWithGoogle}
+          disabled={busy}
+          style={({ pressed }) => [
+            styles.googleButton,
+            { backgroundColor: colors.card, borderColor: colors.border },
+            busy && styles.disabled,
+            pressed && styles.pressed,
+          ]}
+          testID="sign-in-google"
+        >
+          <Ionicons name="logo-google" size={18} color={colors.foreground} />
+          <Text style={[styles.googleButtonText, { color: colors.foreground }]}>
+            Continue with Google
+          </Text>
+        </Pressable>
         <View style={styles.footer}>
           <Text style={{ color: colors.mutedForeground }}>New to your campus app? </Text>
           <Pressable onPress={() => router.push('/sign-up')}>
@@ -135,6 +177,11 @@ const styles = StyleSheet.create({
   message: { marginTop: 12, fontSize: 13, lineHeight: 18 },
   primaryButton: { height: 54, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
   primaryButtonText: { fontSize: 15, fontWeight: '800' },
+  divider: { flexDirection: 'row', alignItems: 'center', marginTop: 20, gap: 12 },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { fontSize: 12, fontWeight: '700' },
+  googleButton: { height: 54, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginTop: 20, borderWidth: 1, flexDirection: 'row', gap: 10 },
+  googleButtonText: { fontSize: 15, fontWeight: '800' },
   disabled: { opacity: 0.55 },
   pressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },

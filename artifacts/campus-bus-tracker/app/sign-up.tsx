@@ -1,6 +1,8 @@
 import { useRouter, type Href } from 'expo-router';
-import { useSignUp } from '@clerk/expo';
+import { useOAuth, useSignUp } from '@clerk/expo';
 import { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -13,10 +15,13 @@ import {
 } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 
+WebBrowser.maybeCompleteAuthSession();
+
 export default function SignUpScreen() {
   const colors = useColors();
   const router = useRouter();
   const { signUp, errors, fetchStatus } = useSignUp();
+  const { startOAuthFlow: startGoogleFlow } = useOAuth({ strategy: 'oauth_google' });
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +29,24 @@ export default function SignUpScreen() {
   const [message, setMessage] = useState('');
   const [sentCode, setSentCode] = useState(false);
   const busy = fetchStatus === 'fetching';
+
+  const signUpWithGoogle = async () => {
+    setMessage('');
+    try {
+      const { createdSessionId, setActive } = await startGoogleFlow();
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+        router.replace('/' as Href);
+        return;
+      }
+      setMessage('Google sign-up needs another step — finish it in the browser and try again.');
+    } catch (err) {
+      const message =
+        (err as { errors?: Array<{ message?: string }> })?.errors?.[0]?.message ??
+        'Google sign-up failed. Try again.';
+      setMessage(message);
+    }
+  };
 
   const createAccount = async () => {
     setMessage('');
@@ -157,6 +180,31 @@ export default function SignUpScreen() {
             </Text>
           )}
         </Pressable>
+        {!sentCode && (
+          <>
+            <View style={styles.divider}>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+              <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>or</Text>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            </View>
+            <Pressable
+              onPress={signUpWithGoogle}
+              disabled={busy}
+              style={({ pressed }) => [
+                styles.googleButton,
+                { backgroundColor: colors.card, borderColor: colors.border },
+                busy && styles.disabled,
+                pressed && styles.pressed,
+              ]}
+              testID="sign-up-google"
+            >
+              <Ionicons name="logo-google" size={18} color={colors.foreground} />
+              <Text style={[styles.googleButtonText, { color: colors.foreground }]}>
+                Continue with Google
+              </Text>
+            </Pressable>
+          </>
+        )}
         {sentCode && (
           <Pressable
             onPress={() => signUp.verifications.sendEmailCode()}
@@ -190,6 +238,11 @@ const styles = StyleSheet.create({
   message: { marginTop: 12, fontSize: 13, lineHeight: 18 },
   primaryButton: { height: 54, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginTop: 22 },
   primaryButtonText: { fontSize: 15, fontWeight: '800' },
+  divider: { flexDirection: 'row', alignItems: 'center', marginTop: 18, gap: 12 },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { fontSize: 12, fontWeight: '700' },
+  googleButton: { height: 54, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginTop: 18, borderWidth: 1, flexDirection: 'row', gap: 10 },
+  googleButtonText: { fontSize: 15, fontWeight: '800' },
   disabled: { opacity: 0.55 },
   pressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 22 },
