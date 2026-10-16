@@ -12,7 +12,11 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.busyatri.tracker"
+      "bundleIdentifier": "com.busyatri.tracker",
+      "infoPlist": {
+        "UIBackgroundModes": ["location"],
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow Campus Bus Tracker to share the bus location in the background while the driver is on duty."
+      }
     },
     "android": {
       "package": "com.busyatri.tracker",
@@ -22,7 +26,10 @@
       },
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ]
     },
     "web": {
@@ -33,7 +40,10 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow Campus Bus Tracker to share the bus location while the driver is on duty."
+          "locationWhenInUsePermission": "Allow Campus Bus Tracker to share the bus location while the driver is on duty.",
+          "locationAlwaysAndWhenInUsePermission": "Allow Campus Bus Tracker to keep sharing the bus location in the background while the driver is on duty.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ]
     ],

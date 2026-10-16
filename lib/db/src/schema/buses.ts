@@ -92,3 +92,19 @@ export const busRemarksTable = pgTable(
     index("bus_remarks_bus_created_idx").on(table.busId, table.createdAt),
   ],
 );
+
+export const driverUploadTokensTable = pgTable(
+  "driver_upload_tokens",
+  {
+    id: serial("id").primaryKey(),
+    driverId: integer("driver_id")
+      .notNull()
+      .references(() => appUsersTable.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("driver_upload_tokens_driver_idx").on(table.driverId)],
+);

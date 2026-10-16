@@ -1,5 +1,6 @@
 import { useClerk, useAuth } from '@clerk/expo';
 import {
+  customFetch,
   useClearBusLocation,
   useCreateBus,
   useCreateDriver,
@@ -28,6 +29,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
+import {
+  startBackgroundSharing,
+  stopBackgroundSharing,
+} from '@/tasks/locationTask';
 import { useRouter } from 'expo-router';
 import BusMap from '@/components/BusMap';
 import { useQueryClient } from '@tanstack/react-query';
@@ -373,14 +378,17 @@ function DriverDashboard({ profile, bus }: { profile: Profile; bus: Bus | null }
   const shift = useUpdateDriverShift();
   const remark = useCreateDriverRemark();
   const locationMutation = useUpdateDriverLocation();
+  const [backgroundActive, setBackgroundActive] = useState(false);
   const refresh = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
     void queryClient.invalidateQueries({ queryKey: getGetCampusQueryKey() });
     void queryClient.invalidateQueries({ queryKey: getGetAdminOverviewQueryKey() });
   }, [queryClient]);
 
+  // Foreground fallback: only runs when the background task is not active
+  // (background task covers both foreground and background on native).
   useEffect(() => {
-    if (!profile.onDuty || !profile.assignedBusId || !permission?.granted || Platform.OS === 'web') return;
+    if (!profile.onDuty || !profile.assignedBusId || !permission?.granted || Platform.OS === 'web' || backgroundActive) return;
     let subscription: Location.LocationSubscription | null = null;
     void Location.watchPositionAsync(
       { accuracy: Location.Accuracy.High, timeInterval: 5000, distanceInterval: 10 },
@@ -397,7 +405,7 @@ function DriverDashboard({ profile, bus }: { profile: Profile; bus: Bus | null }
       },
     ).then((value) => { subscription = value; }).catch(() => setNotice('Location sharing could not start. Check your phone permissions.'));
     return () => subscription?.remove();
-  }, [profile.onDuty, profile.assignedBusId, permission?.granted, locationMutation.mutate]);
+  }, [profile.onDuty, profile.assignedBusId, permission?.granted, backgroundActive, locationMutation.mutate]);
 
   const toggleShift = async (value: boolean) => {
     setNotice('');
@@ -405,15 +413,60 @@ function DriverDashboard({ profile, bus }: { profile: Profile; bus: Bus | null }
       setNotice('Open this app on your phone to share GPS while on duty.');
       return;
     }
-    if (value && !permission?.granted) {
-      const requested = await requestPermission();
-      if (!requested.granted) {
-        setNotice(requested.canAskAgain ? 'Location permission is needed to share the bus position.' : 'Enable location permission in your phone settings.');
+    if (value) {
+      if (!permission?.granted) {
+        const requested = await requestPermission();
+        if (!requested.granted) {
+          setNotice(requested.canAskAgain ? 'Location permission is needed to share the bus position.' : 'Enable location permission in your phone settings.');
+          return;
+        }
+      }
+      // Turn the shift on first so the server accepts location fixes.
+      try {
+        await shift.mutateAsync({ data: { onDuty: true } });
+      } catch {
+        setNotice('Could not update your shift. Try again.');
         return;
       }
+      // Background mode: keep sharing with the screen off or the app minimized.
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+      try {
+        const bg = await Location.requestBackgroundPermissionsAsync();
+        if (!bg.granted) {
+          setNotice('Sharing with the app open. Allow location “all the time” to keep sharing in the background.');
+          refresh();
+          return;
+        }
+        if (!apiUrl) {
+          setNotice('Sharing with the app open (no API URL configured for background uploads).');
+          refresh();
+          return;
+        }
+        const issued = await customFetch<{ token: string; expiresAt: string }>('/api/driver/upload-token', { method: 'POST' });
+        await startBackgroundSharing({ apiUrl, uploadToken: issued.token });
+        setBackgroundActive(true);
+        setNotice('On duty — sharing continues in the background.');
+      } catch {
+        setNotice('Background sharing could not start — sharing with the app open instead.');
+      }
+      refresh();
+      void Haptics.selectionAsync();
+      return;
+    }
+    // Ending a shift: stop background uploads, revoke the upload token.
+    try {
+      await stopBackgroundSharing();
+    } catch {
+      // best effort; token revocation below still runs
+    }
+    setBackgroundActive(false);
+    try {
+      await customFetch('/api/driver/upload-token', { method: 'DELETE' });
+    } catch {
+      // token expires on its own; ignore
     }
     try {
-      await shift.mutateAsync({ data: { onDuty: value } });
+      await shift.mutateAsync({ data: { onDuty: false } });
       refresh();
       void Haptics.selectionAsync();
     } catch {

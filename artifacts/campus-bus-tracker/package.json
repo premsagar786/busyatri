@@ -60,5 +60,8 @@
     "typescript": "~6.0.3",
     "zod": "catalog:",
     "zod-validation-error": "^3.4.0"
+  },
+  "dependencies": {
+    "expo-task-manager": "^58.0.11"
   }
 }

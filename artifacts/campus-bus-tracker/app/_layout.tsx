@@ -8,6 +8,7 @@ import { ThemeProvider, useTheme } from '@/hooks/ThemeContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ClerkLoaded, ClerkProvider, useAuth } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
+import '@/tasks/locationTask';
 import { setAuthTokenGetter, setBaseUrl } from '@workspace/api-client-react';
 import {
   Inter_400Regular,

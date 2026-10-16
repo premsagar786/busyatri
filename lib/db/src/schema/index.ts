@@ -22,4 +22,5 @@ export {
   busLocationsTable,
   busRemarksTable,
   busesTable,
+  driverUploadTokensTable,
 } from "./buses";
