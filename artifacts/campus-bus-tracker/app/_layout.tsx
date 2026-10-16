@@ -23,8 +23,14 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 3000 } },
 });
-const publicDomain = process.env.EXPO_PUBLIC_DOMAIN;
-if (publicDomain) setBaseUrl(`https://${publicDomain}`);
+// Web/prod: absolute API origin. EXPO_PUBLIC_API_URL wins (http allowed for
+// LAN dev, e.g. http://192.168.1.20:5000); otherwise EXPO_PUBLIC_DOMAIN.
+if (process.env.EXPO_PUBLIC_API_URL) {
+  setBaseUrl(process.env.EXPO_PUBLIC_API_URL);
+} else {
+  const publicDomain = process.env.EXPO_PUBLIC_DOMAIN;
+  if (publicDomain) setBaseUrl(`https://${publicDomain}`);
+}
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
 const proxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;

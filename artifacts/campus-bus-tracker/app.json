@@ -11,9 +11,16 @@
       "backgroundColor": "#f4f6f0"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.busyatri.tracker"
     },
-    "android": {},
+    "android": {
+      "package": "com.busyatri.tracker",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#f4f6f0"
+      }
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
