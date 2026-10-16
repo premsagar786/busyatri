@@ -37,6 +37,20 @@ yarn-error.log
 testem.log
 /typings
 
+# env & secrets — never commit real values (see .env.example)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# local build outputs
+static-build/
+
+# local-only assistant transcripts
+.conversation/
+.agents/
+
 # System Files
 .DS_Store
 Thumbs.db

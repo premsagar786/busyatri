@@ -62,7 +62,15 @@ export default function CampusApp() {
   if (!isLoaded) return <LoadingScreen />;
   if (!isSignedIn) return <WelcomeScreen />;
   if (profileQuery.isLoading) return <LoadingScreen />;
-  if (profileQuery.isError || !profileQuery.data) {
+  // Guard against non-JSON API responses (e.g. opening the dev server without
+  // the /api proxy returns HTML, which parses as text instead of a profile).
+  const maybeProfile = profileQuery.data as unknown;
+  if (
+    profileQuery.isError ||
+    !maybeProfile ||
+    typeof maybeProfile !== 'object' ||
+    typeof (maybeProfile as { role?: unknown }).role !== 'string'
+  ) {
     return (
       <MessageScreen
         title="We couldn't load your account"
@@ -72,7 +80,7 @@ export default function CampusApp() {
     );
   }
 
-  const profile = profileQuery.data;
+  const profile = maybeProfile as Profile;
   const buses = campusQuery.data?.buses ?? [];
   if (profile.role === 'admin') return <AdminDashboard profile={profile} />;
   if (profile.role === 'driver') {
@@ -141,10 +149,10 @@ function Header({ profile, title, subtitle }: { profile: Profile; title: string;
       </View>
       <Pressable
         onPress={() => signOut()}
-        accessibilityLabel={`Sign out ${profile.name}`}
+        accessibilityLabel={`Sign out ${profile.name ?? 'your account'}`}
         style={[styles.avatar, { backgroundColor: colors.secondary }]}
       >
-        <Text style={[styles.avatarText, { color: colors.primary }]}>{profile.name.slice(0, 1).toUpperCase()}</Text>
+        <Text style={[styles.avatarText, { color: colors.primary }]}>{(profile.name ?? '?').slice(0, 1).toUpperCase()}</Text>
       </Pressable>
     </View>
   );

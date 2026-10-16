@@ -36,7 +36,7 @@ export default function SignInScreen() {
       });
       return;
     }
-    setMessage('This sign-in needs another verification step. Contact your college administrator.');
+    setMessage('This sign-in needs email verification first. Check your inbox for the code, or finish creating your account on the sign-up screen.');
   };
 
   return (
