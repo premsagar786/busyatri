@@ -153,13 +153,15 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
   }
 
   metroProcess = spawn(
-    'pnpm',
+    process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
     ['exec', 'expo', 'start', '--no-dev', '--minify', '--localhost'],
     {
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: false,
       cwd: projectRoot,
       env,
+      // .cmd shims require a shell on Windows
+      shell: process.platform === 'win32',
     },
   );
 
