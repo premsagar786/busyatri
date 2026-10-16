@@ -47,4 +47,21 @@ app.use(
 
 app.use("/api", router);
 
+// JSON error handler (keeps CORS headers from above and avoids Express'
+// default HTML error pages, which browsers block on cross-origin reads).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use(
+  (
+    err: unknown,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction,
+  ) => {
+    const message = err instanceof Error ? err.message : "Internal error";
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal error", message });
+    }
+  },
+);
+
 export default app;
