@@ -1,0 +1,25 @@
+name: Keep services awake
+
+# Pings the API + web app twice a day so:
+# - Supabase never hits 7 days of inactivity (which auto-pauses free projects)
+# - /api/readyz runs SELECT 1, proving the API can still reach the database
+#
+# Costs ~60 Actions minutes/month (well within the 2,000 free minutes).
+# Run manually any time from the Actions tab (workflow_dispatch).
+
+on:
+  schedule:
+    - cron: "17 2,14 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping API readiness (hits the database)
+        run: |
+          curl -fsS --max-time 120 https://busyatri.onrender.com/api/readyz
+      - name: Ping web app
+        run: |
+          curl -fsS --max-time 120 -o /dev/null https://busyatri-web.onrender.com/
