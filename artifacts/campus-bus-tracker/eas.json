@@ -10,7 +10,6 @@
     },
     "preview": {
       "distribution": "internal",
-      "nodeVersion": "22.x",
       "android": {
         "buildType": "apk"
       },
@@ -19,7 +18,6 @@
       }
     },
     "production": {
-      "nodeVersion": "22.x",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://busyatri.onrender.com"
       }
