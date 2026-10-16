@@ -36,6 +36,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -46,8 +47,20 @@ import {
   View,
 } from 'react-native';
 import { useColors } from '@/hooks/useColors';
+import { useTheme, type ThemeMode } from '@/hooks/ThemeContext';
+import Constants from 'expo-constants';
 
 type Section = 'overview' | 'buses' | 'drivers';
+
+const PARKING_SPOTS = [
+  'Main Gate',
+  'Law College',
+  'AGC Park',
+  'Clerk Office',
+  'Canteen',
+  'Girls Hostel',
+  'Ground',
+];
 
 export default function CampusApp() {
   const colors = useColors();
@@ -141,20 +154,96 @@ function WelcomeScreen() {
 function Header({ profile, title, subtitle }: { profile: Profile; title: string; subtitle: string }) {
   const colors = useColors();
   const { signOut } = useClerk();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   return (
     <View style={styles.header}>
       <View style={styles.headerText}>
         <Text style={[styles.eyebrow, { color: colors.primary }]}>{subtitle}</Text>
         <Text style={[styles.pageTitle, { color: colors.foreground }]}>{title}</Text>
       </View>
-      <Pressable
-        onPress={() => signOut()}
-        accessibilityLabel={`Sign out ${profile.name ?? 'your account'}`}
-        style={[styles.avatar, { backgroundColor: colors.secondary }]}
-      >
-        <Text style={[styles.avatarText, { color: colors.primary }]}>{(profile.name ?? '?').slice(0, 1).toUpperCase()}</Text>
-      </Pressable>
+      <View style={styles.headerActions}>
+        <Pressable
+          onPress={() => setSettingsOpen(true)}
+          accessibilityLabel="Open settings"
+          style={[styles.headerIconButton, { backgroundColor: colors.secondary }]}
+        >
+          <Ionicons name="settings-outline" size={20} color={colors.primary} />
+        </Pressable>
+        <Pressable
+          onPress={() => signOut()}
+          accessibilityLabel={`Sign out ${profile.name ?? 'your account'}`}
+          style={[styles.avatar, { backgroundColor: colors.secondary }]}
+        >
+          <Text style={[styles.avatarText, { color: colors.primary }]}>{(profile.name ?? '?').slice(0, 1).toUpperCase()}</Text>
+        </Pressable>
+      </View>
+      <SettingsSheet
+        visible={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        userName={profile.name ?? 'Campus member'}
+        userEmail={profile.email}
+        onSignOut={() => signOut()}
+      />
     </View>
+  );
+}
+
+const THEME_MODES: Array<{ id: ThemeMode; label: string }> = [
+  { id: 'system', label: 'System' },
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Dark' },
+];
+
+function SettingsSheet({ visible, onClose, userName, userEmail, onSignOut }: {
+  visible: boolean;
+  onClose: () => void;
+  userName: string;
+  userEmail: string;
+  onSignOut: () => void;
+}) {
+  const colors = useColors();
+  const { mode, setMode } = useTheme();
+  const version = Constants.expoConfig?.version ?? '1.0.0';
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.sheetOverlay}>
+        <Pressable style={styles.sheetSpacer} onPress={onClose} accessibilityLabel="Close settings" />
+        <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Settings</Text>
+          <Text style={[styles.smallText, { color: colors.mutedForeground }]}>{userName} · {userEmail}</Text>
+          <Text style={[styles.sectionTitle, { color: colors.foreground, marginTop: 18 }]}>Appearance</Text>
+          <View style={styles.modeRow}>
+            {THEME_MODES.map((option) => {
+              const active = mode === option.id;
+              return (
+                <Pressable
+                  key={option.id}
+                  onPress={() => setMode(option.id)}
+                  style={[
+                    styles.modeOption,
+                    { backgroundColor: active ? colors.primary : colors.secondary, borderColor: colors.border },
+                  ]}
+                  testID={`theme-${option.id}`}
+                >
+                  <Text style={{ color: active ? colors.primaryForeground : colors.secondaryForeground, fontWeight: '800', fontSize: 13 }}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Pressable
+            onPress={() => { onClose(); onSignOut(); }}
+            style={[styles.logoutButton, { backgroundColor: colors.destructive }]}
+            testID="settings-logout"
+          >
+            <Ionicons name="log-out-outline" size={18} color={colors.destructiveForeground} />
+            <Text style={[styles.logoutText, { color: colors.destructiveForeground }]}>Log out</Text>
+          </Pressable>
+          <Text style={[styles.versionText, { color: colors.mutedForeground }]}>Campus Bus Tracker v{version}</Text>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -346,6 +435,18 @@ function DriverDashboard({ profile, bus }: { profile: Profile; bus: Bus | null }
     }
   };
 
+  const shareSpot = async (spot: string) => {
+    if (remark.isPending) return;
+    try {
+      await remark.mutateAsync({ data: { place: spot, text: `Parked at ${spot}.` } });
+      setNotice(`Shared “${spot}” with students.`);
+      refresh();
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      setNotice('Could not share the spot. Check your connection and try again.');
+    }
+  };
+
   return (
     <View style={[styles.screen, { backgroundColor: colors.background, paddingTop: Platform.OS === 'web' ? 20 : 10 }]}>
       <ScrollView contentContainerStyle={[styles.pageContent, { paddingBottom: Platform.OS === 'web' ? 130 : 118 }]} showsVerticalScrollIndicator={false}>
@@ -376,11 +477,30 @@ function DriverDashboard({ profile, bus }: { profile: Profile; bus: Bus | null }
         {bus && (
           <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Campus parking note</Text>
-            <Text style={[styles.smallText, { color: colors.mutedForeground, marginTop: 4, marginBottom: 16 }]}>Help students find you while buses are being parked on campus.</Text>
+            <Text style={[styles.smallText, { color: colors.mutedForeground, marginTop: 4, marginBottom: 12 }]}>Tap a spot to share it instantly — students see it on your bus.</Text>
+            <View style={styles.spotWrap}>
+              {PARKING_SPOTS.map((spot) => (
+                <Pressable
+                  key={spot}
+                  onPress={() => shareSpot(spot)}
+                  disabled={remark.isPending}
+                  style={({ pressed }) => [
+                    styles.spotChip,
+                    { backgroundColor: colors.secondary, borderColor: colors.border },
+                    pressed && styles.pressed,
+                  ]}
+                  testID={`parking-spot-${spot}`}
+                >
+                  <Ionicons name="location-outline" size={14} color={colors.primary} />
+                  <Text style={[styles.spotText, { color: colors.secondaryForeground }]}>{spot}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={[styles.smallText, { color: colors.mutedForeground, marginTop: 16, marginBottom: 16 }]}>Or write a custom note:</Text>
             <Field label="Where did you park?" value={place} onChangeText={setPlace} placeholder="Near the Law College" />
             <Field label="What should students know?" value={remarkText} onChangeText={setRemarkText} placeholder="Bus 43 is parked beside the east gate." multiline />
             <ActionButton title={remark.isPending ? 'Posting…' : 'Share note with students'} icon="paper-plane-outline" onPress={postRemark} disabled={!place.trim() || !remarkText.trim() || remark.isPending} />
-            {bus.remark && <Text style={[styles.lastNote, { color: colors.mutedForeground }]}>Last note: “{bus.remark.text}” · {formatTime(bus.remark.createdAt)}</Text>}
+            {bus.remark && <Text style={[styles.lastNote, { color: colors.mutedForeground }]}>Showing now: {bus.remark.place} — “{bus.remark.text}” · {formatTime(bus.remark.createdAt)}</Text>}
           </View>
         )}
       </ScrollView>
@@ -743,6 +863,20 @@ const styles = StyleSheet.create({
   pageTitle: { fontSize: 28, fontWeight: '800', letterSpacing: -0.8, marginTop: 4 },
   avatar: { height: 42, width: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 16, fontWeight: '800' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerIconButton: { height: 42, width: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  spotWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  spotChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 13 },
+  spotText: { fontSize: 12, fontWeight: '800' },
+  sheetOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+  sheetSpacer: { flex: 1 },
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, padding: 22, paddingBottom: 34 },
+  sheetTitle: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
+  modeRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  modeOption: { flex: 1, borderWidth: 1, borderRadius: 12, paddingVertical: 11, alignItems: 'center' },
+  logoutButton: { marginTop: 20, borderRadius: 14, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+  logoutText: { fontSize: 15, fontWeight: '800' },
+  versionText: { fontSize: 11, textAlign: 'center', marginTop: 16 },
   statusBanner: { padding: 18, borderRadius: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
   statusBannerCopy: { flex: 1, paddingRight: 10 },
   bannerKicker: { color: '#c9e1d6', fontSize: 10, fontWeight: '800', letterSpacing: 1.3 },
