@@ -74,20 +74,16 @@ export default function SignUpScreen() {
       setMessage(result.error.message);
       return;
     }
-    // The signUp signal can lag one tick behind the resolved promise, so wait
-    // briefly for the status to settle instead of trusting the first read.
-    const deadline = Date.now() + 3000;
-    while (signUp.status !== 'complete' && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 150));
-    }
-    if (signUp.status === 'complete') {
+    // Finalize directly: the signUp status signal does not update in place,
+    // so reading signUp.status here always sees the pre-submit value.
+    try {
       await signUp.finalize({
         navigate: ({ decorateUrl }) =>
           router.replace(decorateUrl('/') as Href),
       });
-      return;
+    } catch {
+      setMessage('Your account still needs another setup step.');
     }
-    setMessage('Your account still needs another setup step.');
   };
 
   return (

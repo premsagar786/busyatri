@@ -50,20 +50,17 @@ export default function SignInScreen() {
       setMessage(result.error.message);
       return;
     }
-    // The signIn signal can lag one tick behind the resolved promise, so wait
-    // briefly for the status to settle instead of trusting the first read.
-    const deadline = Date.now() + 3000;
-    while (signIn.status !== 'complete' && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 150));
-    }
-    if (signIn.status === 'complete') {
+    // Finalize directly: the signIn status signal does not update in place,
+    // so reading signIn.status here always sees the pre-submit value and would
+    // wrongly report "needs verification" on valid logins.
+    try {
       await signIn.finalize({
         navigate: ({ decorateUrl }) =>
           router.replace(decorateUrl('/') as Href),
       });
-      return;
+    } catch {
+      setMessage('This sign-in needs email verification first. Check your inbox for the code, or finish creating your account on the sign-up screen.');
     }
-    setMessage('This sign-in needs email verification first. Check your inbox for the code, or finish creating your account on the sign-up screen.');
   };
 
   return (
