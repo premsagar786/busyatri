@@ -14,14 +14,12 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.example.com",
-        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_..."
+        "EXPO_PUBLIC_API_URL": "https://busyatri.onrender.com"
       }
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.example.com",
-        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_..."
+        "EXPO_PUBLIC_API_URL": "https://busyatri.onrender.com"
       }
     }
   },
