@@ -1,22 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo } from 'react';
-import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
 import type { Bus } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { getRouteLayer } from '@/utils/route';
 
 const TILE_SIZE = 256;
-const ZOOM = 16;
-const WORLD = TILE_SIZE * 2 ** ZOOM;
+const MIN_ZOOM = 13;
+const MAX_ZOOM = 19;
 
-/** Projects lat/long into world pixel space (same math as the OSM tiles). */
-function projectIntoWorld(latitude: number, longitude: number) {
+/**
+ * Projects lat/long into world pixel space for a given zoom level
+ * (the same math OSM tiles use, so route points land on the mosaic).
+ */
+function projectIntoWorld(latitude: number, longitude: number, world: number) {
   const bounded = Math.max(-85.0511, Math.min(85.0511, latitude));
   const latitudeRadians = bounded * Math.PI / 180;
   return {
-    x: ((longitude + 180) / 360) * WORLD,
-    y: ((1 - Math.log(Math.tan(latitudeRadians) + 1 / Math.cos(latitudeRadians)) / Math.PI) / 2) * WORLD,
+    x: ((longitude + 180) / 360) * world,
+    y: ((1 - Math.log(Math.tan(latitudeRadians) + 1 / Math.cos(latitudeRadians)) / Math.PI) / 2) * world,
   };
 }
 
@@ -27,10 +30,12 @@ export default function BusMap({ bus }: { bus: Bus | null }) {
   const { width: viewportWidth } = useWindowDimensions();
   const width = Math.min(580, Math.max(260, viewportWidth - 40));
   const height = 252;
+  const [zoom, setZoom] = useState(16);
 
   const layout = useMemo(() => {
     if (!location) return null;
-    const busPixel = projectIntoWorld(location.latitude, location.longitude);
+    const world = TILE_SIZE * 2 ** zoom;
+    const busPixel = projectIntoWorld(location.latitude, location.longitude, world);
     const centerX = Math.floor(busPixel.x / TILE_SIZE);
     const centerY = Math.floor(busPixel.y / TILE_SIZE);
     const offsetX = width / 2 - (busPixel.x - centerX * TILE_SIZE);
@@ -38,23 +43,23 @@ export default function BusMap({ bus }: { bus: Bus | null }) {
     const tiles = [];
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -2; dx <= 2; dx++) {
-        const x = ((centerX + dx) % 2 ** ZOOM + 2 ** ZOOM) % 2 ** ZOOM;
+        const x = ((centerX + dx) % 2 ** zoom + 2 ** zoom) % 2 ** zoom;
         const y = centerY + dy;
-        if (y < 0 || y >= 2 ** ZOOM) continue;
+        if (y < 0 || y >= 2 ** zoom) continue;
         tiles.push({
-          key: `${x}-${y}`,
-          uri: `https://tile.openstreetmap.org/${ZOOM}/${x}/${y}.png`,
+          key: `${zoom}-${x}-${y}`,
+          uri: `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`,
           left: offsetX + dx * TILE_SIZE,
           top: offsetY + dy * TILE_SIZE,
         });
       }
     }
     const onScreen = (latitude: number, longitude: number) => {
-      const pixel = projectIntoWorld(latitude, longitude);
+      const pixel = projectIntoWorld(latitude, longitude, world);
       return { x: pixel.x - centerX * TILE_SIZE + offsetX, y: pixel.y - centerY * TILE_SIZE + offsetY };
     };
     return { tiles, onScreen };
-  }, [location?.latitude, location?.longitude, width, height]);
+  }, [location?.latitude, location?.longitude, width, height, zoom]);
 
   if (!bus || !location || !layout) {
     return (
@@ -94,19 +99,48 @@ export default function BusMap({ bus }: { bus: Bus | null }) {
         </Svg>
       )}
       {route && startOnScreen && (
-        <View style={[styles.endpoint, { left: startOnScreen.x - 13, top: startOnScreen.y - 13, backgroundColor: colors.accent, borderColor: colors.accentForeground }]}>
+        <View style={[styles.endpoint, { left: startOnScreen.x - 13, top: startOnScreen.y - 13, backgroundColor: colors.accent, borderColor: colors.accentForeground }]} pointerEvents="none">
           <Ionicons name="play" size={11} color={colors.accentForeground} />
         </View>
       )}
       {route && endOnScreen && (
-        <View style={[styles.endpoint, { left: endOnScreen.x - 13, top: endOnScreen.y - 13, backgroundColor: colors.primary, borderColor: colors.accent }]}>
+        <View style={[styles.endpoint, { left: endOnScreen.x - 13, top: endOnScreen.y - 13, backgroundColor: colors.primary, borderColor: colors.accent }]} pointerEvents="none">
           <Ionicons name="flag" size={11} color={colors.primaryForeground} />
         </View>
       )}
-      <View style={[styles.centerPin, { marginLeft: -17, marginTop: -17 }]}>
+      <View style={[styles.centerPin, { marginLeft: -17, marginTop: -17 }]} pointerEvents="none">
         <View style={[route ? styles.markerSmall : styles.marker, { backgroundColor: colors.primary, borderColor: colors.accent }]}>
           <Ionicons name="bus" size={route ? 15 : 20} color={colors.primaryForeground} />
         </View>
+      </View>
+      {/* zoom controls */}
+      <View style={[styles.zoomControls, { top: 52 }]}>
+        <Pressable
+          accessibilityLabel="Zoom in"
+          onPress={() => setZoom((value) => Math.min(MAX_ZOOM, value + 1))}
+          disabled={zoom >= MAX_ZOOM}
+          style={({ pressed }) => [
+            styles.zoomButton,
+            { backgroundColor: colors.card, borderColor: colors.border },
+            zoom >= MAX_ZOOM && styles.zoomDisabled,
+            pressed && styles.zoomPressed,
+          ]}
+        >
+          <Ionicons name="add" size={17} color={zoom >= MAX_ZOOM ? colors.mutedForeground : colors.primary} />
+        </Pressable>
+        <Pressable
+          accessibilityLabel="Zoom out"
+          onPress={() => setZoom((value) => Math.max(MIN_ZOOM, value - 1))}
+          disabled={zoom <= MIN_ZOOM}
+          style={({ pressed }) => [
+            styles.zoomButton,
+            { backgroundColor: colors.card, borderColor: colors.border },
+            zoom <= MIN_ZOOM && styles.zoomDisabled,
+            pressed && styles.zoomPressed,
+          ]}
+        >
+          <Ionicons name="remove" size={17} color={zoom <= MIN_ZOOM ? colors.mutedForeground : colors.primary} />
+        </Pressable>
       </View>
       <View style={[styles.attribution, { backgroundColor: colors.card }]}>
         <Text style={[styles.attributionText, { color: colors.mutedForeground }]}>© OpenStreetMap</Text>
@@ -135,6 +169,10 @@ const styles = StyleSheet.create({
   routeLayer: { position: 'absolute', width: '100%', height: '100%' },
   centerPin: { position: 'absolute', left: '50%', top: '50%' },
   endpoint: { position: 'absolute', width: 26, height: 26, borderRadius: 13, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  zoomControls: { position: 'absolute', right: 11, gap: 7, zIndex: 10 },
+  zoomButton: { width: 34, height: 34, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  zoomDisabled: { opacity: 0.45 },
+  zoomPressed: { transform: [{ scale: 0.94 }], opacity: 0.85 },
   empty: { height: 220, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 9, marginBottom: 15 },
   emptyTitle: { fontSize: 16, fontWeight: '800', marginTop: 2 },
   busIcon: { width: 48, height: 48, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
