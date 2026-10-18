@@ -17,6 +17,12 @@ export const busesTable = pgTable("buses", {
   busNumber: text("bus_number").notNull().unique(),
   routeName: text("route_name").notNull(),
   routeStops: jsonb("route_stops").$type<string[]>().notNull().default([]),
+  // Optional map layer: where this bus's shift begins and ends. When both are
+  // set and a driver is live, students see the start → end route on the map.
+  startLat: doublePrecision("start_lat"),
+  startLon: doublePrecision("start_lon"),
+  endLat: doublePrecision("end_lat"),
+  endLon: doublePrecision("end_lon"),
   capacity: integer("capacity").notNull().default(40),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true })

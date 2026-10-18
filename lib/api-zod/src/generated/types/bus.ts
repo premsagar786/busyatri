@@ -15,6 +15,10 @@ export interface Bus {
   routeStops: string[];
   capacity: number;
   active: boolean;
+  startLat: number | null;
+  startLon: number | null;
+  endLat: number | null;
+  endLon: number | null;
   driverName: string | null;
   driverEmail: string | null;
   onDuty: boolean;

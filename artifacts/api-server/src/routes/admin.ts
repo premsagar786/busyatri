@@ -32,6 +32,18 @@ const router: IRouter = Router();
 
 router.use("/admin", requireUser, requireRole("admin"));
 
+const LAT_BOUNDS = { min: -90, max: 90 } as const;
+const LON_BOUNDS = { min: -180, max: 180 } as const;
+
+/** True when the value is null (clears the field) or within bounds. */
+function validCoord(value: number | null | undefined, bounds: { min: number; max: number }) {
+  return value === undefined || (value === null || (Number.isFinite(value) && value >= bounds.min && value <= bounds.max));
+}
+
+function invalidCoordMessage() {
+  return "Route coordinates must be latitude −90 to 90 and longitude −180 to 180.";
+}
+
 router.get("/admin/overview", async (_req, res): Promise<void> => {
   const [buses, drivers, liveLocations, onDuty] = await Promise.all([
     db.select({ count: sql<number>`count(*)::int` }).from(busesTable),
@@ -110,6 +122,29 @@ router.post("/admin/buses", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const coords = {
+    startLat: parsed.data.startLat,
+    startLon: parsed.data.startLon,
+    endLat: parsed.data.endLat,
+    endLon: parsed.data.endLon,
+  };
+  if (
+    !validCoord(coords.startLat, LAT_BOUNDS) ||
+    !validCoord(coords.startLon, LON_BOUNDS) ||
+    !validCoord(coords.endLat, LAT_BOUNDS) ||
+    !validCoord(coords.endLon, LON_BOUNDS)
+  ) {
+    res.status(400).json({ error: invalidCoordMessage() });
+    return;
+  }
+  if ((coords.startLat != null) !== (coords.startLon != null)) {
+    res.status(400).json({ error: "Start requires both latitude and longitude." });
+    return;
+  }
+  if ((coords.endLat != null) !== (coords.endLon != null)) {
+    res.status(400).json({ error: "End requires both latitude and longitude." });
+    return;
+  }
   const [bus] = await db
     .insert(busesTable)
     .values({
@@ -150,6 +185,28 @@ router.patch("/admin/buses/:id", async (req, res): Promise<void> => {
         }
       : {}),
   };
+  if (
+    !validCoord(parsed.data.startLat, LAT_BOUNDS) ||
+    !validCoord(parsed.data.startLon, LON_BOUNDS) ||
+    !validCoord(parsed.data.endLat, LAT_BOUNDS) ||
+    !validCoord(parsed.data.endLon, LON_BOUNDS)
+  ) {
+    res.status(400).json({ error: invalidCoordMessage() });
+    return;
+  }
+  const startSet =
+    parsed.data.startLat !== undefined || parsed.data.startLon !== undefined;
+  const endSet =
+    parsed.data.endLat !== undefined || parsed.data.endLon !== undefined;
+  if (
+    (startSet &&
+      (parsed.data.startLat == null) !== (parsed.data.startLon == null)) ||
+    (endSet &&
+      (parsed.data.endLat == null) !== (parsed.data.endLon == null))
+  ) {
+    res.status(400).json({ error: "Set both route coordinates, or both as null to clear." });
+    return;
+  }
   const [updated] = await db
     .update(busesTable)
     .set(values)

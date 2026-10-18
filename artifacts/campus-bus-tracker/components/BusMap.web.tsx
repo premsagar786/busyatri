@@ -1,30 +1,40 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
 import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Svg, { Polyline } from 'react-native-svg';
 import type { Bus } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
+import { getRouteLayer } from '@/utils/route';
 
 const TILE_SIZE = 256;
 const ZOOM = 16;
 const WORLD = TILE_SIZE * 2 ** ZOOM;
 
+/** Projects lat/long into world pixel space (same math as the OSM tiles). */
+function projectIntoWorld(latitude: number, longitude: number) {
+  const bounded = Math.max(-85.0511, Math.min(85.0511, latitude));
+  const latitudeRadians = bounded * Math.PI / 180;
+  return {
+    x: ((longitude + 180) / 360) * WORLD,
+    y: ((1 - Math.log(Math.tan(latitudeRadians) + 1 / Math.cos(latitudeRadians)) / Math.PI) / 2) * WORLD,
+  };
+}
+
 export default function BusMap({ bus }: { bus: Bus | null }) {
   const colors = useColors();
   const location = bus?.location;
+  const route = getRouteLayer(bus);
   const { width: viewportWidth } = useWindowDimensions();
   const width = Math.min(580, Math.max(260, viewportWidth - 40));
   const height = 252;
 
-  const tilePositions = useMemo(() => {
-    if (!location) return [];
-    const latitude = Math.max(-85.0511, Math.min(85.0511, location.latitude));
-    const latitudeRadians = latitude * Math.PI / 180;
-    const pixelX = ((location.longitude + 180) / 360) * WORLD;
-    const pixelY = ((1 - Math.log(Math.tan(latitudeRadians) + 1 / Math.cos(latitudeRadians)) / Math.PI) / 2) * WORLD;
-    const centerX = Math.floor(pixelX / TILE_SIZE);
-    const centerY = Math.floor(pixelY / TILE_SIZE);
-    const offsetX = width / 2 - (pixelX - centerX * TILE_SIZE);
-    const offsetY = height / 2 - (pixelY - centerY * TILE_SIZE);
+  const layout = useMemo(() => {
+    if (!location) return null;
+    const busPixel = projectIntoWorld(location.latitude, location.longitude);
+    const centerX = Math.floor(busPixel.x / TILE_SIZE);
+    const centerY = Math.floor(busPixel.y / TILE_SIZE);
+    const offsetX = width / 2 - (busPixel.x - centerX * TILE_SIZE);
+    const offsetY = height / 2 - (busPixel.y - centerY * TILE_SIZE);
     const tiles = [];
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -2; dx <= 2; dx++) {
@@ -39,10 +49,14 @@ export default function BusMap({ bus }: { bus: Bus | null }) {
         });
       }
     }
-    return tiles;
+    const onScreen = (latitude: number, longitude: number) => {
+      const pixel = projectIntoWorld(latitude, longitude);
+      return { x: pixel.x - centerX * TILE_SIZE + offsetX, y: pixel.y - centerY * TILE_SIZE + offsetY };
+    };
+    return { tiles, onScreen };
   }, [location?.latitude, location?.longitude, width, height]);
 
-  if (!bus || !location) {
+  if (!bus || !location || !layout) {
     return (
       <View style={[styles.empty, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
         {bus ? (
@@ -50,28 +64,66 @@ export default function BusMap({ bus }: { bus: Bus | null }) {
         ) : <Ionicons name="map-outline" size={30} color={colors.primary} />}
         <Text style={[styles.emptyTitle, { color: colors.foreground }]}>{bus ? `Bus ${bus.busNumber} is on this route` : 'Select a campus bus'}</Text>
         <Text style={[styles.smallText, { color: colors.mutedForeground }]}>
-          {bus ? 'The map updates when the driver starts a shift and shares GPS.' : 'Its latest phone GPS location will appear here.'}
+          {bus
+            ? 'The map shows your route start → end while the driver is live.'
+            : 'Its latest phone GPS location will appear here.'}
         </Text>
       </View>
     );
   }
 
+  const busOnScreen = layout.onScreen(location.latitude, location.longitude);
+  const startOnScreen = route ? layout.onScreen(route.start.latitude, route.start.longitude) : null;
+  const endOnScreen = route ? layout.onScreen(route.end.latitude, route.end.longitude) : null;
+  const coveredPoints = route && startOnScreen
+    ? [startOnScreen, { x: busOnScreen.x, y: busOnScreen.y }].map((p) => `${p.x},${p.y}`).join(' ')
+    : '';
+  const remainingPoints = route && endOnScreen
+    ? [{ x: busOnScreen.x, y: busOnScreen.y }, endOnScreen].map((p) => `${p.x},${p.y}`).join(' ')
+    : '';
+
   return (
     <View style={[styles.frame, { width, borderColor: colors.border }]}>
-      {tilePositions.map((tile) => (
+      {layout.tiles.map((tile) => (
         <Image key={tile.key} source={{ uri: tile.uri }} resizeMode="stretch" style={[styles.tile, { left: tile.left, top: tile.top }]} />
       ))}
-      <View style={styles.centerPin}>
-        <View style={[styles.marker, { backgroundColor: colors.primary, borderColor: colors.accent }]}>
-          <Ionicons name="bus" size={20} color={colors.primaryForeground} />
+      {route && startOnScreen && endOnScreen && (
+        <Svg style={styles.routeLayer} pointerEvents="none">
+          <Polyline points={coveredPoints} fill="none" stroke={colors.primary} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" strokeOpacity={0.9} />
+          <Polyline points={remainingPoints} fill="none" stroke={colors.primary} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" strokeOpacity={0.9} strokeDasharray="8 7" />
+        </Svg>
+      )}
+      {route && startOnScreen && (
+        <View style={[styles.endpoint, { left: startOnScreen.x - 13, top: startOnScreen.y - 13, backgroundColor: colors.accent, borderColor: colors.accentForeground }]}>
+          <Ionicons name="play" size={11} color={colors.accentForeground} />
+        </View>
+      )}
+      {route && endOnScreen && (
+        <View style={[styles.endpoint, { left: endOnScreen.x - 13, top: endOnScreen.y - 13, backgroundColor: colors.primary, borderColor: colors.accent }]}>
+          <Ionicons name="flag" size={11} color={colors.primaryForeground} />
+        </View>
+      )}
+      <View style={[styles.centerPin, { marginLeft: -17, marginTop: -17 }]}>
+        <View style={[route ? styles.markerSmall : styles.marker, { backgroundColor: colors.primary, borderColor: colors.accent }]}>
+          <Ionicons name="bus" size={route ? 15 : 20} color={colors.primaryForeground} />
         </View>
       </View>
       <View style={[styles.attribution, { backgroundColor: colors.card }]}>
         <Text style={[styles.attributionText, { color: colors.mutedForeground }]}>© OpenStreetMap</Text>
       </View>
-      <View style={[styles.label, { backgroundColor: colors.card }]}>
-        <View style={[styles.dot, { backgroundColor: colors.primary }]} />
-        <Text style={[styles.labelText, { color: colors.foreground }]}>Bus {bus.busNumber}</Text>
+      <View style={styles.labels}>
+        <View style={[styles.label, { backgroundColor: colors.card }]}>
+          <View style={[styles.dot, { backgroundColor: colors.primary }]} />
+          <Text style={[styles.labelText, { color: colors.foreground }]}>Bus {bus.busNumber}</Text>
+        </View>
+        {route && (
+          <View style={[styles.routeLegend, { backgroundColor: colors.card }]}>
+            <Ionicons name="navigate" size={11} color={colors.primary} />
+            <Text style={[styles.routeLegendText, { color: colors.mutedForeground }]} numberOfLines={1}>
+              {route.startName} → {route.endName}
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -80,15 +132,21 @@ export default function BusMap({ bus }: { bus: Bus | null }) {
 const styles = StyleSheet.create({
   frame: { height: 252, maxWidth: '100%', borderRadius: 22, overflow: 'hidden', borderWidth: 1, marginBottom: 15, alignSelf: 'center', backgroundColor: '#e7ece7' },
   tile: { position: 'absolute', width: TILE_SIZE, height: TILE_SIZE },
-  centerPin: { position: 'absolute', left: '50%', top: '50%', marginLeft: -22, marginTop: -22 },
+  routeLayer: { position: 'absolute', width: '100%', height: '100%' },
+  centerPin: { position: 'absolute', left: '50%', top: '50%' },
+  endpoint: { position: 'absolute', width: 26, height: 26, borderRadius: 13, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   empty: { height: 220, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 9, marginBottom: 15 },
   emptyTitle: { fontSize: 16, fontWeight: '800', marginTop: 2 },
   busIcon: { width: 48, height: 48, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   marker: { width: 43, height: 43, borderRadius: 16, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
+  markerSmall: { width: 34, height: 34, borderRadius: 12, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
   attribution: { position: 'absolute', bottom: 6, left: 7, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 3 },
   attributionText: { fontSize: 9 },
-  label: { position: 'absolute', top: 11, left: 11, borderRadius: 11, paddingVertical: 8, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  labels: { position: 'absolute', top: 11, left: 11, right: 11, flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  label: { borderRadius: 11, paddingVertical: 8, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 7 },
   labelText: { fontSize: 12, fontWeight: '800' },
+  routeLegend: { borderRadius: 11, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
+  routeLegendText: { fontSize: 11, fontWeight: '700', flexShrink: 1 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   smallText: { fontSize: 11, lineHeight: 16, textAlign: 'center' },
 });

@@ -53,6 +53,8 @@ import {
 } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { useTheme, type ThemeMode } from '@/hooks/ThemeContext';
+import { notifyLocationLive, notifyShiftEnded } from '@/tasks/notifications';
+import { routeSummary } from '@/utils/route';
 import Constants from 'expo-constants';
 
 type Section = 'overview' | 'buses' | 'drivers';
@@ -66,6 +68,34 @@ const PARKING_SPOTS = [
   'Girls Hostel',
   'Ground',
 ];
+
+/** Parses "lat, lon" text input → coordinates (invalid/empty = null). */
+function parseCoordPair(input: string): { latitude: number; longitude: number } | null {
+  const parts = input.split(',').map((part) => part.trim());
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+  const latitude = Number(parts[0]);
+  const longitude = Number(parts[1]);
+  if (
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    return null;
+  }
+  return { latitude, longitude };
+}
+
+/**
+ * "" → undefined (leave the saved route untouched), else the parsed pair or
+ * null when the text is filled but not a valid "lat, lon" pair.
+ */
+function parseCoordsField(input: string): { latitude: number; longitude: number } | null | undefined {
+  if (!input.trim()) return undefined;
+  return parseCoordPair(input.trim());
+}
 
 export default function CampusApp() {
   const colors = useColors();
@@ -375,6 +405,8 @@ function DriverDashboard({ profile, bus }: { profile: Profile; bus: Bus | null }
   const [remarkText, setRemarkText] = useState('');
   const [place, setPlace] = useState('');
   const [notice, setNotice] = useState('');
+  // Route summary shown on the driver's live pill; set when the shift goes live.
+  const [liveRoute, setLiveRoute] = useState<string | null>(() => (profile.onDuty ? routeSummary(bus) : null));
   const shift = useUpdateDriverShift();
   const remark = useCreateDriverRemark();
   const locationMutation = useUpdateDriverLocation();
@@ -384,6 +416,12 @@ function DriverDashboard({ profile, bus }: { profile: Profile; bus: Bus | null }
     void queryClient.invalidateQueries({ queryKey: getGetCampusQueryKey() });
     void queryClient.invalidateQueries({ queryKey: getGetAdminOverviewQueryKey() });
   }, [queryClient]);
+
+  // Keep the live pill in sync with the server's duty state.
+  useEffect(() => {
+    if (profile.onDuty) setLiveRoute((current) => current ?? routeSummary(bus));
+    else setLiveRoute(null);
+  }, [profile.onDuty, bus]);
 
   // Foreground fallback: only runs when the background task is not active
   // (background task covers both foreground and background on native).
@@ -428,6 +466,11 @@ function DriverDashboard({ profile, bus }: { profile: Profile; bus: Bus | null }
         setNotice('Could not update your shift. Try again.');
         return;
       }
+      // Tell the driver (system notification + in-app) that students can now
+      // see them, including the live start → end route when it is mapped.
+      const summary = routeSummary(bus);
+      void notifyLocationLive(bus?.busNumber ?? null, summary);
+      setLiveRoute(summary);
       // Background mode: keep sharing with the screen off or the app minimized.
       const apiUrl = process.env.EXPO_PUBLIC_API_URL;
       try {
@@ -469,6 +512,8 @@ function DriverDashboard({ profile, bus }: { profile: Profile; bus: Bus | null }
       await shift.mutateAsync({ data: { onDuty: false } });
       refresh();
       void Haptics.selectionAsync();
+      void notifyShiftEnded();
+      setLiveRoute(null);
     } catch {
       setNotice('Could not update your shift. Try again.');
     }
@@ -512,7 +557,13 @@ function DriverDashboard({ profile, bus }: { profile: Profile; bus: Bus | null }
               <Text style={styles.driverRoute}>{bus?.routeName ?? 'Waiting for your college admin'}</Text>
             </View>
           </View>
-          <Text style={styles.driverHeroBody}>{profile.onDuty ? 'Your phone is sharing your bus location with students.' : 'Start your shift to share your bus location.'}</Text>
+          <Text style={styles.driverHeroBody}>
+            {profile.onDuty
+              ? liveRoute
+                ? `Students see you live ${liveRoute} — with the start → end route on their map.`
+                : 'Your phone is sharing your bus location with students.'
+              : 'Start your shift to share your bus location.'}
+          </Text>
           <View style={styles.shiftControl}>
             <View><Text style={styles.shiftTitle}>{profile.onDuty ? 'On duty' : 'Off duty'}</Text><Text style={styles.shiftSub}>{profile.onDuty ? 'GPS sharing is active' : 'Location is not being shared'}</Text></View>
             <Switch
@@ -524,6 +575,14 @@ function DriverDashboard({ profile, bus }: { profile: Profile; bus: Bus | null }
               testID="driver-shift-toggle"
             />
           </View>
+          {profile.onDuty && (
+            <View style={styles.livePill}>
+              <View style={styles.livePillDot} />
+              <Text style={styles.livePillText} numberOfLines={1}>
+                {liveRoute ? `Location is live · ${liveRoute}` : 'Location is live — students can track you'}
+              </Text>
+            </View>
+          )}
         </View>
         {!!notice && <Text style={[styles.notice, { color: colors.primary }]}>{notice}</Text>}
         {!bus && <EmptyCard icon="alert-circle-outline" title="No bus assigned" body="Ask your college admin to add your driver account and assign your bus." />}
@@ -568,8 +627,9 @@ function AdminDashboard({ profile }: { profile: Profile }) {
   const overview = useGetAdminOverview({ query: { queryKey: getGetAdminOverviewQueryKey(), refetchInterval: 5000 } });
   const buses = useListAdminBuses({ query: { queryKey: getListAdminBusesQueryKey(), refetchInterval: 5000 } });
   const drivers = useListDrivers({ query: { queryKey: getListDriversQueryKey(), refetchInterval: 10000 } });
-  const [busDraft, setBusDraft] = useState({ busNumber: '', routeName: '', routeStops: '', capacity: '40' });
+  const [busDraft, setBusDraft] = useState({ busNumber: '', routeName: '', routeStops: '', capacity: '40', startCoords: '', endCoords: '' });
   const [editingBus, setEditingBus] = useState<Bus | null>(null);
+  const emptyBusDraft = { busNumber: '', routeName: '', routeStops: '', capacity: '40', startCoords: '', endCoords: '' };
   const [driverDraft, setDriverDraft] = useState({ name: '', email: '', busId: '' });
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [locationBus, setLocationBus] = useState<Bus | null>(null);
@@ -640,7 +700,21 @@ function AdminDashboard({ profile }: { profile: Profile }) {
 
   const submitBus = async () => {
     const stops = busDraft.routeStops.split(',').map((stop) => stop.trim()).filter(Boolean);
-    const data = { busNumber: busDraft.busNumber.trim(), routeName: busDraft.routeName.trim(), routeStops: stops, capacity: Number(busDraft.capacity) };
+    // Route coords: blank = leave the saved route as-is, else require "lat, lon".
+    const startField = parseCoordsField(busDraft.startCoords);
+    const endField = parseCoordsField(busDraft.endCoords);
+    if (startField === null || endField === null) {
+      setNotice('Route coordinates need two numbers: “lat, lon” (lat −90…90, lon −180…180).');
+      return;
+    }
+    const data = {
+      busNumber: busDraft.busNumber.trim(),
+      routeName: busDraft.routeName.trim(),
+      routeStops: stops,
+      capacity: Number(busDraft.capacity),
+      ...(startField ? { startLat: startField.latitude, startLon: startField.longitude } : {}),
+      ...(endField ? { endLat: endField.latitude, endLon: endField.longitude } : {}),
+    };
     if (!data.busNumber || !data.routeName || !Number.isFinite(data.capacity) || data.capacity < 1) {
       setNotice('Add a bus number, route, and valid capacity.');
       return;
@@ -648,7 +722,7 @@ function AdminDashboard({ profile }: { profile: Profile }) {
     try {
       if (editingBus) await updateBus.mutateAsync({ id: editingBus.id, data: { ...data, active: editingBus.active } });
       else await createBus.mutateAsync({ data });
-      setBusDraft({ busNumber: '', routeName: '', routeStops: '', capacity: '40' });
+      setBusDraft(emptyBusDraft);
       setEditingBus(null);
       setNotice(editingBus ? 'Bus updated.' : 'Bus added.');
       refresh();
@@ -657,9 +731,31 @@ function AdminDashboard({ profile }: { profile: Profile }) {
     }
   };
 
+  const clearBusRoute = async () => {
+    if (!editingBus) return;
+    try {
+      await updateBus.mutateAsync({
+        id: editingBus.id,
+        data: { startLat: null, startLon: null, endLat: null, endLon: null },
+      });
+      setBusDraft(emptyBusDraft);
+      setNotice('Route start & destination cleared.');
+      refresh();
+    } catch {
+      setNotice('Could not clear the route coordinates.');
+    }
+  };
+
   const beginEditBus = (bus: Bus) => {
     setEditingBus(bus);
-    setBusDraft({ busNumber: bus.busNumber, routeName: bus.routeName, routeStops: bus.routeStops.join(', '), capacity: String(bus.capacity) });
+    setBusDraft({
+      busNumber: bus.busNumber,
+      routeName: bus.routeName,
+      routeStops: bus.routeStops.join(', '),
+      capacity: String(bus.capacity),
+      startCoords: bus.startLat != null && bus.startLon != null ? `${bus.startLat}, ${bus.startLon}` : '',
+      endCoords: bus.endLat != null && bus.endLon != null ? `${bus.endLat}, ${bus.endLon}` : '',
+    });
     setSection('buses');
   };
 
@@ -751,8 +847,16 @@ function AdminDashboard({ profile }: { profile: Profile }) {
               <Field label="Route name" value={busDraft.routeName} onChangeText={(value) => setBusDraft((draft) => ({ ...draft, routeName: value }))} placeholder="Law College loop" />
               <Field label="Stops, separated by commas" value={busDraft.routeStops} onChangeText={(value) => setBusDraft((draft) => ({ ...draft, routeStops: value }))} placeholder="Main gate, Library, Law College" />
               <Field label="Seat capacity" value={busDraft.capacity} onChangeText={(value) => setBusDraft((draft) => ({ ...draft, capacity: value.replace(/[^0-9]/g, '') }))} placeholder="40" keyboardType="number-pad" />
+              <Field label="Start point (lat, lon) — optional" value={busDraft.startCoords} onChangeText={(value) => setBusDraft((draft) => ({ ...draft, startCoords: value }))} placeholder="12.9350, 77.5230" />
+              <Field label="Destination (lat, lon) — optional" value={busDraft.endCoords} onChangeText={(value) => setBusDraft((draft) => ({ ...draft, endCoords: value }))} placeholder="12.9420, 77.5510" />
+              <Text style={[styles.smallText, { color: colors.mutedForeground, marginBottom: 12 }]}>While the driver is live, students see the dashed route between these two pins on the map. Leave blank to keep the saved route.</Text>
               <ActionButton title={editingBus ? 'Save bus' : 'Add bus'} icon={editingBus ? 'checkmark' : 'add'} onPress={submitBus} disabled={createBus.isPending || updateBus.isPending} />
-              {editingBus && <Pressable onPress={() => { setEditingBus(null); setBusDraft({ busNumber: '', routeName: '', routeStops: '', capacity: '40' }); }} style={styles.cancelButton}><Text style={[styles.linkText, { color: colors.mutedForeground }]}>Cancel edit</Text></Pressable>}
+              {editingBus && (editingBus.startLat != null || editingBus.endLat != null) && (
+                <Pressable accessibilityLabel="Clear saved route coordinates" onPress={clearBusRoute} style={styles.cancelButton}>
+                  <Text style={[styles.linkText, { color: colors.destructive }]}>Clear saved route start & destination</Text>
+                </Pressable>
+              )}
+              {editingBus && <Pressable onPress={() => { setEditingBus(null); setBusDraft(emptyBusDraft); }} style={styles.cancelButton}><Text style={[styles.linkText, { color: colors.mutedForeground }]}>Cancel edit</Text></Pressable>}
             </View>
             <Text style={[styles.sectionTitle, { color: colors.foreground, marginBottom: 12 }]}>All buses</Text>
             {busList.map((bus) => (
@@ -975,6 +1079,9 @@ const styles = StyleSheet.create({
   avatarLarge: { height: 52, width: 52, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   driverRoute: { color: '#ffffff', fontSize: 17, fontWeight: '800', marginTop: 4 },
   driverHeroBody: { color: '#d5e7dc', lineHeight: 20, fontSize: 13, marginTop: 18 },
+  livePill: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(216, 241, 119, 0.16)', borderWidth: 1, borderColor: 'rgba(216, 241, 119, 0.45)', borderRadius: 20, paddingHorizontal: 13, paddingVertical: 8, marginTop: 14 },
+  livePillDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d8f177' },
+  livePillText: { color: '#d8f177', fontSize: 12, fontWeight: '700', flexShrink: 1 },
   shiftControl: { borderTopWidth: 1, borderTopColor: '#46766a', marginTop: 18, paddingTop: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   shiftTitle: { color: '#ffffff', fontWeight: '800', fontSize: 14 },
   shiftSub: { color: '#c9dbd1', fontSize: 11, marginTop: 3 },

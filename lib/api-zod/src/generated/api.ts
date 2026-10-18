@@ -43,6 +43,10 @@ export const GetCampusResponse = zod.object({
   "routeStops": zod.array(zod.string()),
   "capacity": zod.number().int(),
   "active": zod.boolean(),
+  "startLat": zod.number().nullable(),
+  "startLon": zod.number().nullable(),
+  "endLat": zod.number().nullable(),
+  "endLon": zod.number().nullable(),
   "driverName": zod.string().nullable(),
   "driverEmail": zod.string().nullable(),
   "onDuty": zod.boolean(),
@@ -159,6 +163,10 @@ export const ListAdminBusesResponseItem = zod.object({
   "routeStops": zod.array(zod.string()),
   "capacity": zod.number().int(),
   "active": zod.boolean(),
+  "startLat": zod.number().nullable(),
+  "startLon": zod.number().nullable(),
+  "endLat": zod.number().nullable(),
+  "endLon": zod.number().nullable(),
   "driverName": zod.string().nullable(),
   "driverEmail": zod.string().nullable(),
   "onDuty": zod.boolean(),
@@ -188,13 +196,29 @@ export const ListAdminBusesResponse = zod.array(ListAdminBusesResponseItem)
 
 
 
+export const createBusBodyStartLatMin = -90;
+export const createBusBodyStartLatMax = 90;
+
+export const createBusBodyStartLonMin = -180;
+export const createBusBodyStartLonMax = 180;
+
+export const createBusBodyEndLatMin = -90;
+export const createBusBodyEndLatMax = 90;
+
+export const createBusBodyEndLonMin = -180;
+export const createBusBodyEndLonMax = 180;
+
 
 
 export const CreateBusBody = zod.object({
   "busNumber": zod.string().min(1),
   "routeName": zod.string().min(1),
   "routeStops": zod.array(zod.string()),
-  "capacity": zod.number().int().min(1)
+  "capacity": zod.number().int().min(1),
+  "startLat": zod.number().min(createBusBodyStartLatMin).max(createBusBodyStartLatMax).nullish(),
+  "startLon": zod.number().min(createBusBodyStartLonMin).max(createBusBodyStartLonMax).nullish(),
+  "endLat": zod.number().min(createBusBodyEndLatMin).max(createBusBodyEndLatMax).nullish(),
+  "endLon": zod.number().min(createBusBodyEndLonMin).max(createBusBodyEndLonMax).nullish()
 })
 
 export const CreateBusResponse = zod.object({
@@ -204,6 +228,10 @@ export const CreateBusResponse = zod.object({
   "routeStops": zod.array(zod.string()),
   "capacity": zod.number().int(),
   "active": zod.boolean(),
+  "startLat": zod.number().nullable(),
+  "startLon": zod.number().nullable(),
+  "endLat": zod.number().nullable(),
+  "endLon": zod.number().nullable(),
   "driverName": zod.string().nullable(),
   "driverEmail": zod.string().nullable(),
   "onDuty": zod.boolean(),
@@ -239,6 +267,18 @@ export const UpdateBusParams = zod.object({
 
 
 
+export const updateBusBodyStartLatMin = -90;
+export const updateBusBodyStartLatMax = 90;
+
+export const updateBusBodyStartLonMin = -180;
+export const updateBusBodyStartLonMax = 180;
+
+export const updateBusBodyEndLatMin = -90;
+export const updateBusBodyEndLatMax = 90;
+
+export const updateBusBodyEndLonMin = -180;
+export const updateBusBodyEndLonMax = 180;
+
 
 
 export const UpdateBusBody = zod.object({
@@ -246,7 +286,11 @@ export const UpdateBusBody = zod.object({
   "routeName": zod.string().min(1).optional(),
   "routeStops": zod.array(zod.string()).optional(),
   "capacity": zod.number().int().min(1).optional(),
-  "active": zod.boolean().optional()
+  "active": zod.boolean().optional(),
+  "startLat": zod.number().min(updateBusBodyStartLatMin).max(updateBusBodyStartLatMax).nullish(),
+  "startLon": zod.number().min(updateBusBodyStartLonMin).max(updateBusBodyStartLonMax).nullish(),
+  "endLat": zod.number().min(updateBusBodyEndLatMin).max(updateBusBodyEndLatMax).nullish(),
+  "endLon": zod.number().min(updateBusBodyEndLonMin).max(updateBusBodyEndLonMax).nullish()
 })
 
 export const UpdateBusResponse = zod.object({
@@ -256,6 +300,10 @@ export const UpdateBusResponse = zod.object({
   "routeStops": zod.array(zod.string()),
   "capacity": zod.number().int(),
   "active": zod.boolean(),
+  "startLat": zod.number().nullable(),
+  "startLon": zod.number().nullable(),
+  "endLat": zod.number().nullable(),
+  "endLon": zod.number().nullable(),
   "driverName": zod.string().nullable(),
   "driverEmail": zod.string().nullable(),
   "onDuty": zod.boolean(),

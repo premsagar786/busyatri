@@ -14,4 +14,24 @@ export interface BusInput {
   routeStops: string[];
   /** @minimum 1 */
   capacity: number;
+  /**
+     * @minimum -90
+     * @maximum 90
+     */
+  startLat?: number | null;
+  /**
+     * @minimum -180
+     * @maximum 180
+     */
+  startLon?: number | null;
+  /**
+     * @minimum -90
+     * @maximum 90
+     */
+  endLat?: number | null;
+  /**
+     * @minimum -180
+     * @maximum 180
+     */
+  endLon?: number | null;
 }

@@ -51,6 +51,10 @@ export interface Bus {
   routeStops: string[];
   capacity: number;
   active: boolean;
+  startLat: number | null;
+  startLon: number | null;
+  endLat: number | null;
+  endLon: number | null;
   driverName: string | null;
   driverEmail: string | null;
   onDuty: boolean;
@@ -111,6 +115,26 @@ export interface BusInput {
   routeStops: string[];
   /** @minimum 1 */
   capacity: number;
+  /**
+     * @minimum -90
+     * @maximum 90
+     */
+  startLat?: number | null;
+  /**
+     * @minimum -180
+     * @maximum 180
+     */
+  startLon?: number | null;
+  /**
+     * @minimum -90
+     * @maximum 90
+     */
+  endLat?: number | null;
+  /**
+     * @minimum -180
+     * @maximum 180
+     */
+  endLon?: number | null;
 }
 
 export interface BusUpdate {
@@ -122,6 +146,26 @@ export interface BusUpdate {
   /** @minimum 1 */
   capacity?: number;
   active?: boolean;
+  /**
+     * @minimum -90
+     * @maximum 90
+     */
+  startLat?: number | null;
+  /**
+     * @minimum -180
+     * @maximum 180
+     */
+  startLon?: number | null;
+  /**
+     * @minimum -90
+     * @maximum 90
+     */
+  endLat?: number | null;
+  /**
+     * @minimum -180
+     * @maximum 180
+     */
+  endLon?: number | null;
 }
 
 export interface DriverInput {
