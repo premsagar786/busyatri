@@ -1,11 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
 import { Platform, StyleSheet, Text, View } from 'react-native';
-import type { Bus } from '@workspace/api-client-react';
+import type { Bus, RouteMapResponse } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { getRouteLayer, regionEnclosing } from '@/utils/route';
 
-export default function BusMap({ bus }: { bus: Bus | null }) {
+// The OSRM flags/road layer is web-only for now (react-native-maps already has
+// gestures); the prop is accepted so the shared student dashboard call site
+// typechecks on both platforms.
+export default function BusMap({ bus, routeMap: _routeMap }: { bus: Bus | null; routeMap?: RouteMapResponse | null }) {
   const colors = useColors();
   const location = bus?.location;
   const route = getRouteLayer(bus);

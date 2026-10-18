@@ -24,3 +24,5 @@ export {
   busesTable,
   driverUploadTokensTable,
 } from "./buses";
+
+export { routeStopsCacheTable } from "./routeStops";

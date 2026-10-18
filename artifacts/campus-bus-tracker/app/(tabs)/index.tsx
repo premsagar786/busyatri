@@ -10,6 +10,8 @@ import {
   useGetAdminOverview,
   useGetCampus,
   useGetMe,
+  useGetRouteMap,
+  getGetRouteMapQueryKey,
   useListAdminBuses,
   useListDrivers,
   useUpdateBus,
@@ -25,6 +27,7 @@ import {
   type Bus,
   type Driver,
   type Profile,
+  type RouteMapResponse,
 } from '@workspace/api-client-react';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -293,6 +296,15 @@ function StudentDashboard({ profile, buses, isLoading, onRetry }: {
   const [showAll, setShowAll] = useState(false);
   const selected = buses.find((bus) => bus.id === selectedId) ?? buses[0] ?? null;
   const liveCount = buses.filter((bus) => isFresh(bus.location?.recordedAt) && bus.onDuty).length;
+  // Geocoded stops + road route +ETA re-validated every 20s while a bus is open.
+  const routeMapQuery = useGetRouteMap(selected?.id ?? 0, {
+    query: {
+      queryKey: getGetRouteMapQueryKey(selected?.id ?? 0),
+      refetchInterval: 20000,
+      enabled: selected != null,
+    },
+  });
+  const routeMap = routeMapQuery.data;
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background, paddingTop: Platform.OS === 'web' ? 20 : 10 }]}>
@@ -315,7 +327,7 @@ function StudentDashboard({ profile, buses, isLoading, onRetry }: {
             {selected && isFresh(selected.location?.recordedAt) && selected.onDuty ? '● LIVE' : 'NOT SHARING'}
           </Text>
         </View>
-        <BusMap bus={selected} />
+        <BusMap bus={selected} routeMap={routeMap} />
         {selected?.remark && (
           <View style={[styles.remarkCard, { backgroundColor: colors.accent }]}>
             <View style={[styles.remarkIcon, { backgroundColor: colors.primary }]}>
@@ -380,15 +392,25 @@ function StudentDashboard({ profile, buses, isLoading, onRetry }: {
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Route stops</Text>
               <Text style={[styles.smallText, { color: colors.mutedForeground }]}>Bus {selected.busNumber}</Text>
             </View>
-            {selected.routeStops.length ? selected.routeStops.map((stop, index) => (
-              <View key={`${selected.id}-${stop}-${index}`} style={styles.stopRow}>
-                <View style={styles.stopRail}>
-                  <View style={[styles.stopDot, { backgroundColor: index === 0 || index === selected.routeStops.length - 1 ? colors.primary : colors.border }]} />
-                  {index < selected.routeStops.length - 1 && <View style={[styles.stopLine, { backgroundColor: colors.border }]} />}
+            {selected.routeStops.length ? selected.routeStops.map((stop, index) => {
+              const meta = routeMap?.stops?.find((row) => row.name === stop);
+              return (
+                <View key={`${selected.id}-${stop}-${index}`} style={styles.stopRow}>
+                  <View style={styles.stopRail}>
+                    <View style={[styles.stopDot, { backgroundColor: meta?.reached ? colors.accent : index === 0 || index === selected.routeStops.length - 1 ? colors.primary : colors.border }]} />
+                    {index < selected.routeStops.length - 1 && <View style={[styles.stopLine, { backgroundColor: colors.border }]} />}
+                  </View>
+                  <Text style={[styles.stopName, { color: colors.foreground }]}>{stop}</Text>
+                  <Text style={[styles.stopMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
+                    {meta?.reached
+                      ? 'Reached'
+                      : meta?.etaMin != null
+                        ? `${meta.etaMin} min · ${meta.distanceKm != null ? `${meta.distanceKm} km` : ''}`.replace(/ ·$/, '')
+                        : ''}
+                  </Text>
                 </View>
-                <Text style={[styles.stopName, { color: colors.foreground }]}>{stop}</Text>
-              </View>
-            )) : <Text style={[styles.smallText, { color: colors.mutedForeground }]}>Route stops have not been added yet.</Text>}
+              );
+            }) : <Text style={[styles.smallText, { color: colors.mutedForeground }]}>Route stops have not been added yet.</Text>}
           </View>
         )}
         {buses.length > 0 && <Text style={[styles.disclaimer, { color: colors.mutedForeground }]}>Bus location is shared from the driver's phone while they are on duty.</Text>}
@@ -1072,7 +1094,8 @@ const styles = StyleSheet.create({
   stopRail: { width: 16, alignItems: 'center', height: '100%', justifyContent: 'center' },
   stopDot: { height: 9, width: 9, borderRadius: 5, zIndex: 1 },
   stopLine: { width: 2, position: 'absolute', top: 0, bottom: 0 },
-  stopName: { fontSize: 13, fontWeight: '600' },
+  stopName: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
+  stopMeta: { marginLeft: 'auto', fontSize: 11, fontWeight: '700', flexShrink: 0 },
   disclaimer: { marginTop: 14, fontSize: 10, textAlign: 'center' },
   driverHero: { borderRadius: 22, padding: 18, marginBottom: 18 },
   driverHeroTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },

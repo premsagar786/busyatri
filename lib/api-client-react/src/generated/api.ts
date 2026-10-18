@@ -40,6 +40,7 @@ import type {
   NotFoundResponse,
   Profile,
   Remark,
+  RouteMapResponse,
   UnauthorizedResponse
 } from './api.schemas';
 
@@ -290,6 +291,84 @@ export function useGetCampus<TData = Awaited<ReturnType<typeof getCampus>>, TErr
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetCampusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetRouteMapUrl = (busId: number,) => {
+
+
+
+
+  return `/api/route-map/${busId}`
+}
+
+/**
+ * Resolves the bus's admin stops to coordinates (cached geocodes), follows real roads between start → stops → destination (OSRM, direct via OSRM_URL or approximated when unreachable) and computes the remaining time/distance from the bus's latest live location to every stop downstream.
+ * @summary Geocoded stop flags, OSRM road route and ETA for one bus
+ */
+export const getRouteMap = async (busId: number, options?: Parameters<typeof customFetch>[1]): Promise<RouteMapResponse> => {
+
+  return customFetch<RouteMapResponse>(getGetRouteMapUrl(busId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRouteMapQueryKey = (busId: number,) => {
+    return [
+    `/api/route-map/${busId}`
+    ] as const;
+    }
+
+
+export const getGetRouteMapQueryOptions = <TData = Awaited<ReturnType<typeof getRouteMap>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(busId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRouteMap>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRouteMapQueryKey(busId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRouteMap>>> = ({ signal }) => getRouteMap(busId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: busId !== null && busId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRouteMap>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRouteMapQueryResult = NonNullable<Awaited<ReturnType<typeof getRouteMap>>>
+export type GetRouteMapQueryError = ErrorType<UnauthorizedResponse | NotFoundResponse>
+
+
+/**
+ * @summary Geocoded stop flags, OSRM road route and ETA for one bus
+ */
+
+export function useGetRouteMap<TData = Awaited<ReturnType<typeof getRouteMap>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(
+ busId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRouteMap>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRouteMapQueryOptions(busId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

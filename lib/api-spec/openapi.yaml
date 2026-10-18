@@ -60,6 +60,35 @@ paths:
                 $ref: "#/components/schemas/CampusResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /route-map/{busId}:
+    get:
+      operationId: getRouteMap
+      tags: [campus]
+      summary: Geocoded stop flags, OSRM road route and ETA for one bus
+      description: >-
+        Resolves the bus's admin stops to coordinates (cached geocodes),
+        follows real roads between start → stops → destination (OSRM, direct
+        via OSRM_URL or approximated when unreachable) and computes the
+        remaining time/distance from the bus's latest live location to every
+        stop downstream.
+      parameters:
+        - name: busId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Route layer for the student map (flags, polyline, ETAs)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouteMapResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /driver/location:
     post:
       operationId: updateDriverLocation
@@ -505,6 +534,66 @@ components:
           items:
             $ref: "#/components/schemas/Bus"
       required: [collegeName, buses]
+    RouteStopPoint:
+      type: object
+      properties:
+        name:
+          type: string
+        sequence:
+          type: integer
+          description: Stop order along the route, 0-based
+        latitude:
+          type: number
+          nullable: true
+          description: Admin or geocoded coordinate; null when the stop name could not be matched
+        longitude:
+          type: number
+          nullable: true
+        etaMin:
+          type: number
+          nullable: true
+          description: Minutes from the bus's latest live position along roads; null before the route is known
+        distanceKm:
+          type: number
+          nullable: true
+          description: Road kilometres from the bus's latest live position
+        reached:
+          type: boolean
+          description: True when the live bus is within ~100 m of this stop
+      required: [name, sequence, latitude, longitude, etaMin, distanceKm, reached]
+    RouteMapResponse:
+      type: object
+      properties:
+        busId:
+          type: integer
+        stops:
+          type: array
+          items:
+            $ref: "#/components/schemas/RouteStopPoint"
+        geometry:
+          type: array
+          description: Road-following polyline from start to destination as [lat, lon] pairs
+          items:
+            type: array
+            minItems: 2
+            maxItems: 2
+            items:
+              type: number
+        destinationEtaMin:
+          type: number
+          nullable: true
+        destinationDistanceKm:
+          type: number
+          nullable: true
+        totalDistanceKm:
+          type: number
+          nullable: true
+          description: Full road length of start → destination when the polyline is known
+        source:
+          type: string
+          enum: [osrm, estimate, none]
+          description: osrm (real roads), estimate (straight-line fallback) or none (no usable coordinates)
+      required: [busId, stops, geometry, destinationEtaMin, destinationDistanceKm, totalDistanceKm, source]
     Profile:
       type: object
       properties:

@@ -28,4 +28,7 @@ export * from './notFoundResponse';
 export * from './profile';
 export * from './profileRole';
 export * from './remark';
+export * from './routeMapResponse';
+export * from './routeMapResponseSource';
+export * from './routeStopPoint';
 export * from './unauthorizedResponse';

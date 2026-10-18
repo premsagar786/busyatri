@@ -69,6 +69,50 @@ export interface CampusResponse {
   buses: Bus[];
 }
 
+export interface RouteStopPoint {
+  name: string;
+  /** Stop order along the route, 0-based */
+  sequence: number;
+  /** Admin or geocoded coordinate; null when the stop name could not be matched */
+  latitude: number | null;
+  longitude: number | null;
+  /** Minutes from the bus's latest live position along roads; null before the route is known */
+  etaMin: number | null;
+  /** Road kilometres from the bus's latest live position */
+  distanceKm: number | null;
+  /** True when the live bus is within ~100 m of this stop */
+  reached: boolean;
+}
+
+/**
+ * osrm (real roads), estimate (straight-line fallback) or none (no usable coordinates)
+ */
+export type RouteMapResponseSource = typeof RouteMapResponseSource[keyof typeof RouteMapResponseSource];
+
+
+export const RouteMapResponseSource = {
+  osrm: 'osrm',
+  estimate: 'estimate',
+  none: 'none',
+} as const;
+
+export interface RouteMapResponse {
+  busId: number;
+  stops: RouteStopPoint[];
+  /**
+     * Road-following polyline from start to destination as [lat, lon] pairs
+     * @items.minItems 2
+     * @items.maxItems 2
+     */
+  geometry: number[][];
+  destinationEtaMin: number | null;
+  destinationDistanceKm: number | null;
+  /** Full road length of start → destination when the polyline is known */
+  totalDistanceKm: number | null;
+  /** osrm (real roads), estimate (straight-line fallback) or none (no usable coordinates) */
+  source: RouteMapResponseSource;
+}
+
 export type ProfileRole = typeof ProfileRole[keyof typeof ProfileRole];
 
 

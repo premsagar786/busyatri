@@ -71,6 +71,41 @@ export const GetCampusResponse = zod.object({
 
 
 /**
+ * Resolves the bus's admin stops to coordinates (cached geocodes), follows real roads between start → stops → destination (OSRM, direct via OSRM_URL or approximated when unreachable) and computes the remaining time/distance from the bus's latest live location to every stop downstream.
+ * @summary Geocoded stop flags, OSRM road route and ETA for one bus
+ */
+
+
+
+export const GetRouteMapParams = zod.object({
+  "busId": zod.coerce.number().int().min(1)
+})
+
+export const getRouteMapResponseGeometryItemMin = 2;
+export const getRouteMapResponseGeometryItemMax = 2;
+
+
+
+export const GetRouteMapResponse = zod.object({
+  "busId": zod.number().int(),
+  "stops": zod.array(zod.object({
+  "name": zod.string(),
+  "sequence": zod.number().int().describe('Stop order along the route, 0-based'),
+  "latitude": zod.number().nullable().describe('Admin or geocoded coordinate; null when the stop name could not be matched'),
+  "longitude": zod.number().nullable(),
+  "etaMin": zod.number().nullable().describe('Minutes from the bus\'s latest live position along roads; null before the route is known'),
+  "distanceKm": zod.number().nullable().describe('Road kilometres from the bus\'s latest live position'),
+  "reached": zod.boolean().describe('True when the live bus is within ~100 m of this stop')
+})),
+  "geometry": zod.array(zod.array(zod.number()).min(getRouteMapResponseGeometryItemMin).max(getRouteMapResponseGeometryItemMax)).describe('Road-following polyline from start to destination as [lat, lon] pairs'),
+  "destinationEtaMin": zod.number().nullable(),
+  "destinationDistanceKm": zod.number().nullable(),
+  "totalDistanceKm": zod.number().nullable().describe('Full road length of start → destination when the polyline is known'),
+  "source": zod.enum(['osrm', 'estimate', 'none']).describe('osrm (real roads), estimate (straight-line fallback) or none (no usable coordinates)')
+})
+
+
+/**
  * @summary Update the assigned bus location from the driver's phone
  */
 export const updateDriverLocationBodyLatitudeMin = -90;
